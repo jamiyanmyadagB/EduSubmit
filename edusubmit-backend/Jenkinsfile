@@ -1,0 +1,170 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_HOST = 'localhost:8080'
+        DOCKER_REGISTRY = 'localhost:5000'
+    }
+    
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    // Clean and compile
+                    sh 'mvn clean compile'
+                    
+                    // Run tests
+                    sh 'mvn test'
+                    
+                    // Package applications
+                    sh 'mvn package -DskipTests'
+                    
+                    // Build Docker images
+                    sh 'docker build -t edusubmit/api-gateway:latest ./api-gateway'
+                    sh 'docker build -t edusubmit/auth-service:latest ./auth-service'
+                    sh 'docker build -t edusubmit/assignment-service:latest ./assignment-service'
+                    sh 'docker build -t edusubmit/submission-service:latest ./submission-service'
+                    sh 'docker build -t edusubmit/grading-service:latest ./grading-service'
+                    sh 'docker build -t edusubmit/notification-service:latest ./notification-service'
+                    sh 'docker build -t edusubmit/exam-schedule-service:latest ./exam-schedule-service'
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                script {
+                    // OWASP Dependency Check
+                    sh 'mvn org.owasp:dependency-check:check'
+                    
+                    // Snyk Security Scan
+                    sh 'snyk test --all-projects'
+                    
+                    // Trivy Container Scan
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/api-gateway:latest'
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/auth-service:latest'
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/assignment-service:latest'
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/submission-service:latest'
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/grading-service:latest'
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/notification-service:latest'
+                    sh 'trivy image --severity HIGH,CRITICAL edusubmit/exam-schedule-service:latest'
+                }
+            }
+        }
+        
+        stage('Code Quality') {
+            steps {
+                script {
+                    // SonarQube Analysis
+                    sh 'mvn sonar:sonar -Dsonar.projectKey=edusubmit-backend -Dsonar.host.url=http://localhost:9000'
+                    
+                    // JaCoCo Test Coverage
+                    sh 'mvn jacoco:report'
+                    sh 'mvn jacoco:check'
+                }
+            }
+        }
+        
+        stage('Deploy to Staging') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    // Deploy to staging environment
+                    sh 'docker-compose -f docker-compose.staging.yml up -d'
+                    
+                    // Wait for services to be healthy
+                    sh 'sleep 30'
+                    
+                    // OWASP ZAP Security Test
+                    sh 'docker run --rm -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080/actuator/health'
+                }
+            }
+        }
+        
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+                anyOf {
+                    branch 'main'
+                    expression {
+                        currentBuild.result == 'SUCCESS'
+                    }
+                }
+            }
+            steps {
+                script {
+                    // Deploy to production
+                    sh 'docker-compose -f docker-compose.prod.yml up -d'
+                    
+                    // Health check
+                    sh 'curl -f http://localhost:8080/actuator/health'
+                    
+                    // Notify deployment
+                    sh 'echo "Deployment completed successfully!"'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            steps {
+                script {
+                    // Archive artifacts
+                    archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+                    
+                    // Cleanup Docker images on failure
+                    script {
+                        if (currentBuild.result != 'SUCCESS') {
+                            sh 'docker rmi edusubmit/api-gateway:latest || true'
+                            sh 'docker rmi edusubmit/auth-service:latest || true'
+                            sh 'docker rmi edusubmit/assignment-service:latest || true'
+                            sh 'docker rmi edusubmit/submission-service:latest || true'
+                            sh 'docker rmi edusubmit/grading-service:latest || true'
+                            sh 'docker rmi edusubmit/notification-service:latest || true'
+                            sh 'docker rmi edusubmit/exam-schedule-service:latest || true'
+                        }
+                    }
+                }
+            }
+        }
+        
+        failure {
+            steps {
+                script {
+                    // Notify on failure
+                    emailext (
+                        subject: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: """
+                            Build URL: ${env.BUILD_URL}
+                            Failed Stage: ${env.STAGE_NAME}
+                            Error Details: Check console output for more information
+                        """,
+                        to: "${env.CHANGE_AUTHOR_EMAIL}",
+                        attachLog: true
+                    )
+                }
+            }
+        }
+        
+        success {
+            steps {
+                script {
+                    // Notify on success
+                    emailext (
+                        subject: "Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: """
+                            Build URL: ${env.BUILD_URL}
+                            Deployed Stage: ${env.STAGE_NAME}
+                            All services are running successfully!
+                        """,
+                        to: "${env.CHANGE_AUTHOR_EMAIL}",
+                        attachLog: true
+                    )
+                }
+            }
+        }
+    }
+}

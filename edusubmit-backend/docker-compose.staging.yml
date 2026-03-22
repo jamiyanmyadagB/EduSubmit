@@ -1,0 +1,219 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: edusubmit-mysql-staging
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-staging_root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-edusubmit_staging}
+      MYSQL_USER: ${MYSQL_USER:-staging_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staging_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_staging_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "staging_user", "-p$$MYSQL_PASSWORD", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    container_name: edusubmit-redis-staging
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MinIO for file storage
+  minio:
+    image: minio/minio:latest
+    container_name: edusubmit-minio-staging
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS:-edusubmit-staging}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_staging_data:/data
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    image: edusubmit/api-gateway:staging
+    container_name: edusubmit-api-gateway-staging
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      EUREKA_CLIENT_SERVICE_URL: http://eureka-staging:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/edusubmit_staging
+      SPRING_DATASOURCE_USERNAME: staging_user
+      SPRING_DATASOURCE_PASSWORD: staging_password
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      APP_JWT_SECRET: ${JWT_SECRET:-staging_jwt_secret_key_12345}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+      - eureka-staging
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    image: edusubmit/auth-service:staging
+    container_name: edusubmit-auth-service-staging
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      EUREKA_CLIENT_SERVICE_URL: http://eureka-staging:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/edusubmit_staging
+      SPRING_DATASOURCE_USERNAME: staging_user
+      SPRING_DATASOURCE_PASSWORD: staging_password
+      APP_JWT_SECRET: ${JWT_SECRET:-staging_jwt_secret_key_12345}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mysql
+      - eureka-staging
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Assignment Service
+  assignment-service:
+    build:
+      context: ./assignment-service
+      dockerfile: Dockerfile
+    image: edusubmit/assignment-service:staging
+    container_name: edusubmit-assignment-service-staging
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+      EUREKA_CLIENT_SERVICE_URL: http://eureka-staging:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/edusubmit_staging
+      SPRING_DATASOURCE_USERNAME: staging_user
+      SPRING_DATASOURCE_PASSWORD: staging_password
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mysql
+      - eureka-staging
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Eureka Service Discovery
+  eureka-staging:
+    image: springcloud/eureka-server:latest
+    container_name: edusubmit-eureka-staging
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+    ports:
+      - "8761:8761"
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: edusubmit-prometheus-staging
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_staging_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries'
+      - '--web.console.templates'
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: edusubmit-grafana-staging
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_staging_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  mysql_staging_data:
+    driver: local
+  redis_staging_data:
+    driver: local
+  minio_staging_data:
+    driver: local
+  prometheus_staging_data:
+    driver: local
+  grafana_staging_data:
+    driver: local
+
+networks:
+  edusubmit-network:
+    driver: bridge
