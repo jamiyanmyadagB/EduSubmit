@@ -1,57 +1,80 @@
 # EduSubmit
+
 AI-powered academic portal for assignment submission and grading.
 
-Jamiyanmyadag Baatar · Reg: 12325947 · Section 323DV · B.Tech CSE DevOps
+**Jamiyanmyadag Baatar · B.Tech CSE DevOps**
 
 ---
 
-## About
-EduSubmit is a secure, full-stack academic portal that automates the entire assignment lifecycle — submission, AI-powered evaluation, grading, and exam scheduling — for students and teachers.
+## 🚀 Quick Start
 
----
-
-## Features
-- JWT authentication with Role-Based Access Control (Student / Teacher / Admin)
-- Tamper-proof server-side timestamping — late submissions auto-rejected
-- AI engine for auto-grading, plagiarism detection and feedback generation
-- Real-time exam schedule dashboard published by faculty
-- Prometheus + Grafana monitoring with full audit logging
-- Security scanning via OWASP ZAP, Snyk and Trivy in CI pipeline
-
----
-
-## Quick Start
 ```bash
 git clone https://github.com/jamiyanmyadagB/EduSubmit
 cd EduSubmit
-npm run install
-npm run dev
+docker-compose up -d
 ```
 
-## Usage
-- Students submit assignments and track deadlines
-- Teachers create assignments and grade submissions
-- AI-powered evaluation and feedback
-
-## Tech Stack
-- Frontend: React.js, TypeScript
-- Backend: Java 17, Spring Boot 3
-- Database: MySQL 8
-- Infrastructure: Docker, Kubernetes
-
-## Development
-See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed setup instructions.
+Visit **http://localhost:3000** to get started.
 
 ---
 
-## Project Structure
-backend/           - Java Spring Boot REST API
-frontend/          - React.js SPA
-ai-engine/         - Python Flask NLP and grading
-monitoring/        - Prometheus and Grafana config
-.github/workflows/ - CI/CD pipeline
-docker-compose.yml - runs all services together
+## ✨ Key Features
+
+- **🔐 Secure Authentication** - JWT-based role access (Student/Teacher/Admin)
+- **📝 Smart Submissions** - AI-powered grading & plagiarism detection
+- **⏰ Deadline Management** - Automatic late submission handling
+- **📊 Real-time Analytics** - Live dashboards for assignments & exams
+- **🛡️ Enterprise Security** - OWASP security scanning & monitoring
 
 ---
 
-Made with coffee by Jamiyanmyadag Baatar
+## 🏗️ Architecture
+
+```
+Frontend (React) → API Gateway → Microservices → Database
+     ↓                ↓           ↓              ↓
+   UI/UX          Auth/Grade   Spring Boot     MySQL
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Frontend  | React.js, TypeScript |
+| Backend   | Java 17, Spring Boot 3 |
+| Database  | MySQL 8, Redis |
+| Infrastructure | Docker, Kubernetes |
+| Monitoring | Prometheus, Grafana |
+
+---
+
+## 📁 Project Structure
+
+```
+edusubmit-backend/     # Spring Boot microservices
+edusubmit-frontend/    # React application
+k8s/                   # Kubernetes manifests
+monitoring/            # Prometheus & Grafana
+.github/workflows/     # CI/CD pipeline
+```
+
+---
+
+## 🚦 Deployment
+
+**Development:** `docker-compose up -d`  
+**Production:** `kubectl apply -f k8s/production/`
+
+---
+
+## 📖 Documentation
+
+- [Development Guide](./DEVELOPMENT.md)
+- [API Documentation](./docs/api.md)
+- [Deployment Guide](./docs/deployment.md)
+
+---
+
+*Built with ☕ by Jamiyanmyadag Baatar*
