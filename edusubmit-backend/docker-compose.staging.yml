@@ -65,12 +65,10 @@ services:
 
   # API Gateway
   api-gateway:
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
-    image: edusubmit/api-gateway:staging
+    image: ${DOCKER_REGISTRY:-docker.io}/edusubmit/backend:${IMAGE_TAG:-latest}
     container_name: edusubmit-api-gateway-staging
     environment:
+      SERVICE_TO_START: api-gateway
       SPRING_PROFILES_ACTIVE: staging
       EUREKA_CLIENT_SERVICE_URL: http://eureka-staging:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/edusubmit_staging
@@ -96,12 +94,10 @@ services:
 
   # Auth Service
   auth-service:
-    build:
-      context: ./auth-service
-      dockerfile: Dockerfile
-    image: edusubmit/auth-service:staging
+    image: ${DOCKER_REGISTRY:-docker.io}/edusubmit/backend:${IMAGE_TAG:-latest}
     container_name: edusubmit-auth-service-staging
     environment:
+      SERVICE_TO_START: auth-service
       SPRING_PROFILES_ACTIVE: staging
       EUREKA_CLIENT_SERVICE_URL: http://eureka-staging:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/edusubmit_staging
@@ -124,12 +120,10 @@ services:
 
   # Assignment Service
   assignment-service:
-    build:
-      context: ./assignment-service
-      dockerfile: Dockerfile
-    image: edusubmit/assignment-service:staging
+    image: ${DOCKER_REGISTRY:-docker.io}/edusubmit/backend:${IMAGE_TAG:-latest}
     container_name: edusubmit-assignment-service-staging
     environment:
+      SERVICE_TO_START: assignment-service
       SPRING_PROFILES_ACTIVE: staging
       EUREKA_CLIENT_SERVICE_URL: http://eureka-staging:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/edusubmit_staging
