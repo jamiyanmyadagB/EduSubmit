@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: submission-service
+  namespace: edusubmit-staging
+  labels:
+    app: submission-service
+    environment: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: submission-service
+  template:
+    metadata:
+      labels:
+        app: submission-service
+        environment: staging
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      containers:
+      - name: submission-service
+        image: docker.io/edusubmit/backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8083
+        envFrom:
+        - configMapRef:
+            name: edusubmit-config
+        env:
+        - name: SERVICE_TO_START
+          value: "submission-service"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://mysql-service:3306/edusubmit_staging"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: edusubmit-secrets
+              key: mysql-user
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: edusubmit-secrets
+              key: mysql-password
+        - name: FILE_STORAGE_PATH
+          value: "/app/uploads"
+        volumeMounts:
+        - name: uploads-storage
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8083
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8083
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: uploads-storage
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-service
+  namespace: edusubmit-staging
+  labels:
+    app: submission-service
+    environment: staging
+spec:
+  selector:
+    app: submission-service
+  ports:
+  - port: 8083
+    targetPort: 8083
+  type: ClusterIP
