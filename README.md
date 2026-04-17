@@ -1,5 +1,5 @@
-# 📚 EduSubmit
-AI-Powered Student Assignment Submission & Academic Management Portal
+# EduSubmit
+AI-powered academic portal for assignment submission and grading.
 
 Jamiyanmyadag Baatar · Reg: 12325947 · Section 323DV · B.Tech CSE DevOps
 
@@ -20,20 +20,27 @@ EduSubmit is a secure, full-stack academic portal that automates the entire assi
 
 ---
 
-## Tech Stack
-Java 17, Spring Boot 3, React.js, MySQL 8, Python Flask,
-Docker, GitHub Actions, AWS EC2, Prometheus, Grafana, SonarQube, HashiCorp Vault
-
----
-
 ## Quick Start
-1. Clone the repo
-2. Copy .env.example to .env and fill in your credentials
-3. Run: docker-compose up --build
-4. Frontend runs on localhost:3000
-5. Backend API runs on localhost:8080
-6. AI Engine runs on localhost:5000
-7. Grafana runs on localhost:3001
+```bash
+git clone https://github.com/jamiyanmyadagB/EduSubmit
+cd EduSubmit
+npm run install
+npm run dev
+```
+
+## Usage
+- Students submit assignments and track deadlines
+- Teachers create assignments and grade submissions
+- AI-powered evaluation and feedback
+
+## Tech Stack
+- Frontend: React.js, TypeScript
+- Backend: Java 17, Spring Boot 3
+- Database: MySQL 8
+- Infrastructure: Docker, Kubernetes
+
+## Development
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed setup instructions.
 
 ---
 
