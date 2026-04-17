@@ -1,7 +1,7 @@
 # 📚 EduSubmit
 AI-Powered Student Assignment Submission & Academic Management Portal
 
-Jamiyanmyadag Baatar · Reg: 12325947 · Section 323DV · B.Tech CSE DevOps · 2026–27
+Jamiyanmyadag Baatar · Reg: 12325947 · Section 323DV · B.Tech CSE DevOps
 
 ---
 
