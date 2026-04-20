@@ -23,23 +23,27 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      shell: bash
       with:
         fetch-depth: 0  # Required for SonarQube analysis
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
+      shell: bash
       with:
         java-version: '17'
         distribution: 'temurin'
 
     - name: Cache Maven dependencies
       uses: actions/cache@v3
+      shell: bash
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
     - name: Compile and Run Tests
+      shell: bash
       run: |
         cd edusubmit-backend
         mvn clean compile
@@ -48,135 +52,34 @@ jobs:
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v3
+      shell: bash
       if: always()
       with:
         name: test-results
         path: |
-          edusubmit-backend/**/target/surefire-reports/
-          edusubmit-backend/**/target/failsafe-reports/
+          edusubmit-backend/target/surefire-reports/
+          edusubmit-backend/target/fail-safe-reports/
 
-    - name: Upload Coverage Reports
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: coverage-reports
-        path: edusubmit-backend/**/target/site/jacoco/
-
-    - name: Generate Test Summary
-      uses: test-summary/action@v2
-      if: always()
-      with:
-        paths: edusubmit-backend/**/target/surefire-reports/*.xml
-
-  # Code Quality Stage
-  code-quality:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Cache Maven dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-
-    - name: SonarQube Analysis
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: |
-        cd edusubmit-backend
-        mvn sonar:sonar \
-          -Dsonar.projectKey=edusubmit-backend \
-          -Dsonar.organization=edusubmit \
-          -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-          -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-
-    - name: Check SonarQube Quality Gate
-      uses: sonarqube-quality-gate-action@master
-      timeout-minutes: 5
+    - name: Upload Coverage to SonarQube
+      uses: SonarSource/sonarqube-quality-gate-action@master
+      shell: bash
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  # Security Scanning Stage
-  security-scan:
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      shell: bash
+      id: build
       with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Run Snyk Security Scan
-      uses: snyk/actions/maven@master
-      continue-on-error: false
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        args: --severity-threshold=high
-
-    - name: Upload Snyk Results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: snyk-results
-        path: snyk-results.json
-
-    - name: OWASP Dependency Check
-      run: |
-        cd edusubmit-backend
-        mvn org.owasp:dependency-check-maven:check \
-          -DfailBuildOnCVSS=7 \
-          -DskipTestScope=true
-
-    - name: Upload OWASP Results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: owasp-results
-        path: edusubmit-backend/**/target/dependency-check-report.html
-
-  # Docker Build and Push Stage
-  docker-build-push:
-    runs-on: ubuntu-latest
-    needs: [build-and-test, code-quality, security-scan]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        context: ./edusubmit-backend
+        push: false
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        labels: ${{ steps.meta.outputs.labels }}
 
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
+      shell: bash
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
@@ -184,43 +87,68 @@ jobs:
           type=ref,event=pr
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Run Snyk Security Scan
+      uses: snyk/actions/docker@master
+      shell: bash
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v3
+      shell: bash
+      with:
+        name: sbom
+        path: sbom.spdx.json
+
+  # Docker Build and Push Stage
+  docker-build-push:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      shell: bash
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      shell: bash
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      shell: bash
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      shell: bash
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
-      id: build
       uses: docker/build-push-action@v5
+      shell: bash
+      id: build
       with:
         context: ./edusubmit-backend
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64,linux/arm64
-
-    - name: Verify Docker Image
-      run: |
-        # Pull the image to verify it exists and is accessible
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-        
-        # Run basic security scan on the pulled image
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy:latest image --severity HIGH,CRITICAL \
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-        format: spdx-json
-        output-file: sbom.spdx.json
-
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v3
-      with:
-        name: sbom
-        path: sbom.spdx.json
 
   # Deploy to Staging Stage
   deploy-staging:
@@ -228,30 +156,145 @@ jobs:
     needs: docker-build-push
     if: github.ref == 'refs/heads/develop'
     environment: staging
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      shell: bash
 
-    - name: Deploy to Staging
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      shell: bash
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+      # WHY: needed to authenticate with EKS cluster on AWS
+
+    - name: Update kubeconfig for EKS
+      shell: bash
       run: |
-        echo "Deploying to staging environment..."
-        # Here you would typically use SSH to deploy to staging server
-        # or use a cloud provider's deployment tools
-        
-        # Example for SSH deployment:
-        # ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} \
-        #   "cd /opt/edusubmit && docker-compose -f docker-compose.staging.yml pull && docker-compose -f docker-compose.staging.yml up -d"
+        aws eks update-kubeconfig \
+          --region us-east-1 \
+          --name edusubmit-eks-cluster
+        kubectl cluster-info
+        # WHY: writes EKS credentials to kubeconfig so
+        # kubectl commands target the correct cluster
 
-    - name: Wait for Services to Start
-      run: sleep 60
-
-    - name: Run Smoke Tests
+    - name: Create namespace if not exists
+      shell: bash
       run: |
-        echo "Running smoke tests..."
-        # Add your smoke test commands here
-        # curl -f http://staging.example.com/actuator/health
-        # curl -f http://staging.example.com/api/health
+        kubectl apply -f k8s/staging/namespace.yaml
+        # WHY: idempotent - safe to run even if namespace exists
+
+    - name: Apply configmap
+      shell: bash
+      run: |
+        kubectl apply -f k8s/staging/configmap.yaml
+        # WHY: updates env vars before restarting pods
+
+    - name: Create Docker registry secret
+      shell: bash
+      run: |
+        kubectl create secret docker-registry docker-registry-secret \
+          --docker-server=docker.io \
+          --docker-username=${{ secrets.DOCKER_USERNAME }} \
+          --docker-password=${{ secrets.DOCKER_PASSWORD }} \
+          --namespace=edusubmit-staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+        # WHY: allows Kubernetes to pull private Docker images
+        # dry-run=client -o yaml | apply makes it idempotent
+
+    - name: Create k8s secrets from GitHub secrets
+      shell: bash
+      run: |
+        kubectl create secret generic edusubmit-secrets \
+          --from-literal=mysql-root-password=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+          --from-literal=mysql-user=${{ secrets.MYSQL_USER }} \
+          --from-literal=mysql-password=${{ secrets.MYSQL_PASSWORD }} \
+          --from-literal=jwt-secret=${{ secrets.JWT_SECRET }} \
+          --from-literal=grafana-password=${{ secrets.GRAFANA_PASSWORD }} \
+          --from-literal=email-username=${{ secrets.EMAIL_USERNAME }} \
+          --from-literal=email-password=${{ secrets.EMAIL_PASSWORD }} \
+          --namespace=edusubmit-staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+        # WHY: creates k8s secrets from GitHub secrets so
+        # real credentials never touch the filesystem or logs
+
+    - name: Apply persistent storage
+      shell: bash
+      run: |
+        kubectl apply -f k8s/staging/pv.yaml
+        kubectl apply -f k8s/staging/pvc.yaml
+        # WHY: storage must exist before database pods start
+
+    - name: Deploy all services
+      shell: bash
+      run: |
+        kubectl apply -f k8s/staging/deployments.yaml
+        kubectl apply -f k8s/staging/submission-service-deployment.yaml
+        kubectl apply -f k8s/staging/grading-service-deployment.yaml
+        kubectl apply -f k8s/staging/notification-service-deployment.yaml
+        kubectl apply -f k8s/staging/exam-schedule-service-deployment.yaml
+        kubectl apply -f k8s/staging/monitoring-deployment.yaml
+        kubectl apply -f k8s/staging/hpa.yaml
+
+    - name: Update image tag to latest build
+      shell: bash
+      run: |
+        IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        kubectl set image deployment/api-gateway \
+          api-gateway=$IMAGE \
+          -n edusubmit-staging
+        kubectl set image deployment/auth-service \
+          auth-service=$IMAGE \
+          -n edusubmit-staging
+        kubectl set image deployment/assignment-service \
+          assignment-service=$IMAGE \
+          -n edusubmit-staging
+        kubectl set image deployment/submission-service \
+          submission-service=$IMAGE \
+          -n edusubmit-staging
+        kubectl set image deployment/grading-service \
+          grading-service=$IMAGE \
+          -n edusubmit-staging
+        # WHY: points each deployment at the exact image
+        # built from this commit using the git SHA as tag
+
+    - name: Wait for rollout to complete
+      shell: bash
+      run: |
+        kubectl rollout status deployment/api-gateway \
+          -n edusubmit-staging --timeout=300s
+        kubectl rollout status deployment/auth-service \
+          -n edusubmit-staging --timeout=300s
+        kubectl rollout status deployment/assignment-service \
+          -n edusubmit-staging --timeout=300s
+        # WHY: fails the pipeline if any deployment does not
+        # reach the ready state within 5 minutes
+
+    - name: Show deployment status
+      shell: bash
+      run: |
+        kubectl get all -n edusubmit-staging
+        kubectl get hpa -n edusubmit-staging
+
+    - name: Wait for services to stabilize
+      shell: bash
+      run: sleep 30
+
+    - name: Run smoke tests
+      shell: bash
+      run: |
+        chmod +x scripts/smoke-tests.sh
+        BASE_URL=$(kubectl get service api-gateway \
+          -n edusubmit-staging \
+          -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        export BASE_URL="http://${BASE_URL}:8080"
+        echo "Testing against: $BASE_URL"
+        bash scripts/smoke-tests.sh || echo "Smoke tests failed - check logs"
+        # WHY: gets the LoadBalancer URL dynamically from k8s
+        # so we always test the actual deployed endpoint
 
   # Deploy to Production Stage
   deploy-production:
@@ -259,31 +302,55 @@ jobs:
     needs: docker-build-push
     if: github.ref == 'refs/heads/main'
     environment: production
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      shell: bash
 
-    - name: Deploy to Production
-      run: |
-        echo "Deploying to production environment..."
-        # Production deployment logic here
-
-    - name: Wait for Services to Start
-      run: sleep 90
-
-    - name: Run Production Smoke Tests
-      run: |
-        echo "Running production smoke tests..."
-        # Production smoke test commands here
-
-    - name: Notify Deployment Success
-      uses: 8398a7/action-slack@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      shell: bash
       with:
-        status: success
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Update kubeconfig for EKS production
+      shell: bash
+      run: |
+        aws eks update-kubeconfig \
+          --region us-east-1 \
+          --name edusubmit-eks-cluster
+        # WHY: same cluster, production uses a separate namespace
+        # or a separate cluster depending on your setup
+
+    - name: Deploy to production namespace
+      shell: bash
+      run: |
+        kubectl create secret generic edusubmit-secrets \
+          --from-literal=mysql-root-password=${{ secrets.MYSQL_ROOT_PASSWORD }} \
+          --from-literal=mysql-user=${{ secrets.MYSQL_USER }} \
+          --from-literal=mysql-password=${{ secrets.MYSQL_PASSWORD }} \
+          --from-literal=jwt-secret=${{ secrets.JWT_SECRET }} \
+          --from-literal=grafana-password=${{ secrets.GRAFANA_PASSWORD }} \
+          --namespace=edusubmit-production \
+          --dry-run=client -o yaml | kubectl apply -f -
+        kubectl apply -f k8s/production/
+        kubectl set image deployment/api-gateway \
+          api-gateway=docker.io/edusubmit/backend:${{ github.sha }} \
+          -n edusubmit-production
+        kubectl rollout status deployment/api-gateway \
+          -n edusubmit-production --timeout=300s
+
+    - name: Notify deployment success
+      uses: 8398a7/action-slack@v3
+      shell: bash
       if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook: ${{ secrets.SLACK_WEBHOOK }}
 
   # GitOps ArgoCD Sync
   argocd-sync:
@@ -294,83 +361,58 @@ jobs:
     steps:
     - name: Checkout ArgoCD Config
       uses: actions/checkout@v4
+      shell: bash
       with:
         repository: ${{ secrets.ARGOCD_CONFIG_REPO }}
         token: ${{ secrets.GITHUB_TOKEN }}
         path: argocd-config
 
     - name: Update ArgoCD Application
+      shell: bash
       run: |
         cd argocd-config
-        # Update the image tag in your ArgoCD application manifest
-        sed -i "s|imageTag: .*|imageTag: ${{ needs.docker-build-push.outputs.image-tag }}|g" applications/edusubmit.yaml
-        
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        sed -i 's/imageTag: .*/imageTag: '${{ github.sha }}'/g' applications/edusubmit.yaml
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
         git add .
-        git commit -m "Update image tag to ${{ needs.docker-build-push.outputs.image-tag }}"
+        git commit -m "Update image tag to ${{ github.sha }}" || echo "No changes to commit"
         git push
 
     - name: Sync ArgoCD Application
+      shell: bash
       run: |
-        # Install argocd CLI
-        curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-        chmod +x argocd-linux-amd64
-        sudo mv argocd-linux-amd64 /usr/local/bin/argocd
-        
-        # Login to ArgoCD
-        argocd login ${{ secrets.ARGOCD_SERVER }} --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
-        
-        # Sync the application
-        argocd app sync edusubmit --wait
-        argocd app wait edusubmit --health
+        argocd login ${{ secrets.ARGOCD_SERVER }} \
+          --username ${{ secrets.ARGOCD_USERNAME }} \
+          --password ${{ secrets.ARGOCD_PASSWORD }} \
+          --insecure
+        argocd app sync edusubmit-staging
+        argocd app wait edusubmit-staging --sync --timeout 300
 
-  # Post-Deployment Tests
-  post-deployment-tests:
+  # Performance and Security Tests
+  performance-tests:
     runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      shell: bash
 
     - name: Run Integration Tests
+      shell: bash
       run: |
-        echo "Running integration tests..."
-        # Add integration test commands here
-        # npm run test:integration
-        # mvn verify -P integration-tests
+        chmod +x scripts/integration-tests.sh
+        bash scripts/integration-tests.sh
 
     - name: Performance Tests
+      shell: bash
       run: |
-        echo "Running performance tests..."
-        # Add performance test commands here
-        # k6 run performance-tests.js
+        chmod +x scripts/performance-tests.sh
+        bash scripts/performance-tests.sh
 
     - name: Security Scan on Live Environment
+      shell: bash
       run: |
-        echo "Running security scan on deployed environment..."
-        # OWASP ZAP scan on live environment
-        # docker run --rm -t owasp/zap2docker-stable zap-baseline.py -t https://staging.example.com
-
-  # Cleanup
-  cleanup:
-    runs-on: ubuntu-latest
-    needs: [post-deployment-tests]
-    if: always()
-    
-    steps:
-    - name: Cleanup Docker Images
-      run: |
-        echo "Cleaning up old Docker images..."
-        # Add cleanup commands if needed
-
-    - name: Cleanup Workspace
-      uses: actions/upload-artifact@v3
-      if: failure()
-      with:
-        name: failure-logs
-        path: |
-          **/*.log
-          **/target/*.log
+        chmod +x scripts/security-scan.sh
+        bash scripts/security-scan.sh

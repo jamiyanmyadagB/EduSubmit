@@ -26,13 +26,15 @@ import java.util.stream.Collectors;
 @Component
 public class JwtAuthenticationFilter implements WebFilter {
 
-    @Value("${app.jwt.secret:mySecretKey}")
+    @Value("${app.jwt.secret}")
     private String jwtSecret;
 
     private SecretKey key;
 
-    public JwtAuthenticationFilter() {
-        this.key = Keys.hmacShaKeyFor("mySuperSecretKey123456789012345678901234567890".getBytes(StandardCharsets.UTF_8));
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
     }
 
     @Override

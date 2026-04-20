@@ -33,20 +33,20 @@ public class DataInitializer implements CommandLineRunner {
 
         // Create Student user
         User student = User.builder()
-                .email("student@gmail.com")
+                .email("student@edusubmit.com")
                 .name("Student User")
                 .role(UserRole.STUDENT)
                 .status(UserStatus.ACTIVE)
-                .passwordHash(passwordEncoder.encode("123"))
+                .passwordHash(passwordEncoder.encode("changeThisPassword123!"))
                 .build();
 
         // Create Teacher user
         User teacher = User.builder()
-                .email("teacher@gmail.com")
+                .email("teacher@edusubmit.com")
                 .name("Teacher User")
                 .role(UserRole.TEACHER)
                 .status(UserStatus.ACTIVE)
-                .passwordHash(passwordEncoder.encode("123"))
+                .passwordHash(passwordEncoder.encode("changeThisPassword123!"))
                 .build();
 
         // Create Admin user
