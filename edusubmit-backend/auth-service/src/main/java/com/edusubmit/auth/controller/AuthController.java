@@ -2,8 +2,6 @@ package com.edusubmit.auth.controller;
 
 import com.edusubmit.auth.entity.User;
 import com.edusubmit.auth.repository.UserRepository;
-import com.edusubmit.shared.enums.UserRole;
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -87,11 +85,11 @@ public class AuthController {
         Date expiryDate = new Date(now.getTime() + 86400000); // 24 hours
         
         return Jwts.builder()
-            .setSubject(user.getEmail())
+            .subject(user.getEmail())
             .claim("roles", user.getRole().toString())
             .claim("userId", user.getId())
-            .setIssuedAt(now)
-            .setExpiration(expiryDate)
+            .issuedAt(now)
+            .expiration(expiryDate)
             .signWith(key)
             .compact();
     }

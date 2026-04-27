@@ -49,6 +49,7 @@ secrets/
 *.tfstate
 *.tfstate.*
 .terraform/
+terraform.tfvars
 
 # Docker
 .dockerignore

@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
                 .path(request.getDescription(false))
                 .build();
         
-        return new ResponseEntity<>(errorResponse, ex.getHttpStatus());
+        return new ResponseEntity<>(errorResponse, (HttpStatusCode) ex.getHttpStatus());
     }
 
     @ExceptionHandler(AccessDeniedException.class)

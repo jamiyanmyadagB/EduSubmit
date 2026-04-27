@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.lang.NonNull;
 
 @Slf4j
 @Component
@@ -58,9 +59,9 @@ public class DataInitializer implements CommandLineRunner {
                 .passwordHash(passwordEncoder.encode("123"))
                 .build();
 
-        userRepository.save(student);
-        userRepository.save(teacher);
-        userRepository.save(admin);
+        userRepository.save(@NonNull student);
+        userRepository.save(@NonNull teacher);
+        userRepository.save(@NonNull admin);
 
         log.info("Successfully created 3 users:");
         log.info("1. Student: student@gmail.com / 123");

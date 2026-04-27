@@ -9,9 +9,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/edusubmit-k8s-manifests.git
-    targetRevision: HEAD
-    path: staging
+    repoURL: https://github.com/jamiyanmyadagB/EduSubmit.git
+    targetRevision: main
+    path: k8s/staging
   destination:
     server: https://kubernetes.default.svc
     namespace: edusubmit-staging
