@@ -63,7 +63,9 @@ services:
 
   # API Gateway
   api-gateway:
-    image: ${DOCKER_REGISTRY:-docker.io}/edusubmit/backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
     container_name: edusubmit-api-gateway-staging
     environment:
       SERVICE_TO_START: api-gateway
@@ -143,8 +145,18 @@ services:
 
   # Eureka Service Discovery
   eureka-staging:
-    image: springcloud/eureka-server:latest
+    image: maven:3.8-openjdk-17
     container_name: edusubmit-eureka-staging
+    working_dir: /app
+    command: >
+      sh -c "
+      echo 'Building Eureka Server...' &&
+      git clone https://github.com/spring-cloud-samples/eureka.git /tmp/eureka &&
+      cd /tmp/eureka &&
+      mvn clean package -DskipTests &&
+      cp /tmp/eureka/target/eureka-*.jar /app/eureka.jar &&
+      java -jar /app/eureka.jar
+      "
     environment:
       SPRING_PROFILES_ACTIVE: staging
     ports:
@@ -153,7 +165,7 @@ services:
       - edusubmit-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8761"]
       interval: 30s
       timeout: 10s
       retries: 5

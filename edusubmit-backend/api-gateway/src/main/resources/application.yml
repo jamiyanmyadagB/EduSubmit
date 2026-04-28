@@ -2,18 +2,29 @@ server:
   port: 8080
 
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   application:
     name: api-gateway
+  main:
+    allow-bean-definition-overriding: true
+    web-application-type: reactive
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
   
   cloud:
+    config:
+      enabled: false
     gateway:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
       
   redis:
-    host: localhost
-    port: 6379
-    password: 
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
+    password: ${SPRING_REDIS_PASSWORD:}
     database: 0
     timeout: 2000ms
     lettuce:
@@ -26,12 +37,12 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8080}
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
   instance:
@@ -54,9 +65,9 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web.reactive: DEBUG
-    com.edusubmit.gateway: DEBUG
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:INFO}
+    org.springframework.web.reactive: ${LOG_LEVEL_WEB:INFO}
+    com.edusubmit.gateway: ${LOG_LEVEL_APP:INFO}
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
@@ -64,7 +75,7 @@ logging:
 # Application specific
 app:
   jwt:
-    secret: mySuperSecretKey123456789012345678901234567890
+    secret: ${APP_JWT_SECRET:default-secret-key-change-in-production}
     expiration: 86400000 # 24 hours
   
   rate-limit:

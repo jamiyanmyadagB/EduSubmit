@@ -59,9 +59,9 @@ public class DataInitializer implements CommandLineRunner {
                 .passwordHash(passwordEncoder.encode("123"))
                 .build();
 
-        userRepository.save(@NonNull student);
-        userRepository.save(@NonNull teacher);
-        userRepository.save(@NonNull admin);
+        userRepository.save(student);
+        userRepository.save(teacher);
+        userRepository.save(admin);
 
         log.info("Successfully created 3 users:");
         log.info("1. Student: student@gmail.com / 123");

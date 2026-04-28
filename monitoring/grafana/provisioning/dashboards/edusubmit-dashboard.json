@@ -1,0 +1,140 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "EduSubmit Application Dashboard",
+    "tags": ["edusubmit", "spring-boot", "microservices"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Status",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "up{job=~\"edusubmit-services\"}",
+            "legendFormat": "{{job}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "DOWN", "color": "red"}}, "type": "value"},
+              {"options": {"1": {"text": "UP", "color": "green"}}, "type": "value"}
+            ],
+            "thresholds": {"steps": [{"color": "red", "value": 0}, {"color": "green", "value": 1}]}
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=~\"edusubmit-services\"}[5m])) by (job)",
+            "legendFormat": "{{job}}"
+          }
+        ],
+        "yAxes": [{"label": "Requests/sec"}]
+      },
+      {
+        "id": 3,
+        "title": "Response Time",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"edusubmit-services\"}[5m])) by (le, job))",
+            "legendFormat": "95th percentile - {{job}}"
+          },
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=~\"edusubmit-services\"}[5m])) by (le, job))",
+            "legendFormat": "50th percentile - {{job}}"
+          }
+        ],
+        "yAxes": [{"label": "Seconds"}]
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=~\"edusubmit-services\",status=~\"5..\"}[5m])) by (job) / sum(rate(http_requests_total{job=~\"edusubmit-services\"}[5m])) by (job)",
+            "legendFormat": "Error Rate - {{job}}"
+          }
+        ],
+        "yAxes": [{"label": "Percentage", "max": 1, "min": 0}]
+      },
+      {
+        "id": 5,
+        "title": "JVM Memory Usage",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "jvm_memory_used_bytes{job=~\"edusubmit-services\", area=\"heap\"} / 1024 / 1024",
+            "legendFormat": "Heap Used - {{job}}"
+          },
+          {
+            "expr": "jvm_memory_max_bytes{job=~\"edusubmit-services\", area=\"heap\"} / 1024 / 1024",
+            "legendFormat": "Heap Max - {{job}}"
+          }
+        ],
+        "yAxes": [{"label": "MB"}]
+      },
+      {
+        "id": 6,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{job=~\"edusubmit-services\"}[5m]) * 100",
+            "legendFormat": "CPU % - {{job}}"
+          }
+        ],
+        "yAxes": [{"label": "Percentage", "max": 100, "min": 0}]
+      },
+      {
+        "id": 7,
+        "title": "Database Connections",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "hikaricp_connections_active{job=~\"edusubmit-services\"}",
+            "legendFormat": "Active - {{job}}"
+          },
+          {
+            "expr": "hikaricp_connections_idle{job=~\"edusubmit-services\"}",
+            "legendFormat": "Idle - {{job}}"
+          }
+        ],
+        "yAxes": [{"label": "Connections"}]
+      },
+      {
+        "id": 8,
+        "title": "MySQL Performance",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "targets": [
+          {
+            "expr": "rate(mysql_global_status_queries[5m])",
+            "legendFormat": "Queries/sec"
+          },
+          {
+            "expr": "mysql_global_status_slow_queries",
+            "legendFormat": "Slow Queries"
+          }
+        ],
+        "yAxes": [{"label": "Count"}]
+      }
+    ],
+    "time": { "from": "now-1h", "to": "now" },
+    "refresh": "15s"
+  }
+}

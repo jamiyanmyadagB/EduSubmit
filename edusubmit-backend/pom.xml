@@ -65,11 +65,6 @@
     <modules>
         <module>api-gateway</module>
         <module>auth-service</module>
-        <module>assignment-service</module>
-        <module>submission-service</module>
-        <module>grading-service</module>
-        <module>exam-schedule-service</module>
-        <module>notification-service</module>
         <module>shared</module>
     </modules>
 

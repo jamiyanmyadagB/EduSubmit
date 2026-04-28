@@ -29,10 +29,6 @@ COPY shared ./shared
 COPY api-gateway ./api-gateway
 COPY auth-service ./auth-service
 COPY assignment-service ./assignment-service
-COPY submission-service ./submission-service
-COPY grading-service ./grading-service
-COPY notification-service ./notification-service
-COPY exam-schedule-service ./exam-schedule-service
 
 # Build all modules with tests for quality assurance
 RUN mvn clean package -DskipTests=false -Dmaven.test.failure.ignore=true
@@ -70,10 +66,6 @@ RUN groupadd -r appuser && useradd -r -g appuser -s /bin/false appuser
 COPY --from=builder /app/api-gateway/target/*.jar ./api-gateway/
 COPY --from=builder /app/auth-service/target/*.jar ./auth-service/
 COPY --from=builder /app/assignment-service/target/*.jar ./assignment-service/
-COPY --from=builder /app/submission-service/target/*.jar ./submission-service/
-COPY --from=builder /app/grading-service/target/*.jar ./grading-service/
-COPY --from=builder /app/notification-service/target/*.jar ./notification-service/
-COPY --from=builder /app/exam-schedule-service/target/*.jar ./exam-schedule-service/
 
 # Copy startup scripts
 COPY docker-entrypoint.sh /usr/local/bin/
@@ -85,8 +77,8 @@ RUN chown -R appuser:appuser /app
 # Switch to non-root user for security
 USER appuser
 
-# Expose ports for all services
-EXPOSE 8080 8081 8082 8083 8084 8085 8086
+# Expose ports for existing services only
+EXPOSE 8080 8081 8082
 
 # Set environment variables
 ENV JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseG1GC -XX:+UseContainerSupport"
@@ -99,6 +91,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
 
 # Use entrypoint script for flexible startup
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
-# Default command - can be overridden by docker-compose or kubernetes
-CMD ["java", "-jar", "-Dspring.profiles.active=prod", "./api-gateway/edusubmit-api-gateway-1.0.0.jar"]

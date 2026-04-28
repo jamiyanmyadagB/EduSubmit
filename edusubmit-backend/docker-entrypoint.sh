@@ -87,7 +87,7 @@ main() {
     # Determine which service to start
     SERVICE_TO_START=${SERVICE_TO_START:-api-gateway}
     
-    # Find the JAR file for the service
+    # Find the JAR file for the service (only existing services)
     case $SERVICE_TO_START in
         "api-gateway")
             start_service "api-gateway/edusubmit-api-gateway-1.0.0.jar"
@@ -98,21 +98,9 @@ main() {
         "assignment-service")
             start_service "assignment-service/edusubmit-assignment-service-1.0.0.jar"
             ;;
-        "submission-service")
-            start_service "submission-service/edusubmit-submission-service-1.0.0.jar"
-            ;;
-        "grading-service")
-            start_service "grading-service/edusubmit-grading-service-1.0.0.jar"
-            ;;
-        "notification-service")
-            start_service "notification-service/edusubmit-notification-service-1.0.0.jar"
-            ;;
-        "exam-schedule-service")
-            start_service "exam-schedule-service/edusubmit-exam-schedule-service-1.0.0.jar"
-            ;;
         *)
             echo "Unknown service: $SERVICE_TO_START"
-            echo "Available services: api-gateway, auth-service, assignment-service, submission-service, grading-service, notification-service, exam-schedule-service"
+            echo "Available services: api-gateway, auth-service, assignment-service"
             exit 1
             ;;
     esac
