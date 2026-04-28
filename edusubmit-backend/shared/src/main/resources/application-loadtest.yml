@@ -1,0 +1,210 @@
+# Load Testing Configuration
+spring:
+  profiles:
+    active: loadtest
+
+# Load Testing Settings
+loadtest:
+  enabled: true
+  warmup-duration: 30
+  cooldown-duration: 10
+  results-directory: "./loadtest-results"
+  enable-monitoring: true
+  metrics-collection-interval: 5
+  generate-html-report: true
+
+  # Default Test Profile (Smoke Test)
+  default-profile:
+    concurrent-users: 5
+    ramp-up-time: 10
+    test-duration: 60
+    requests-per-second: 2.0
+    target-endpoint: "/api/health"
+    test-type: "SMOKE"
+    payload-file: null
+    content-type: "application/json"
+    random-payload: false
+    min-think-time: 1000
+    max-think-time: 3000
+    max-error-rate: 5.0
+    max-response-time: 5000
+    max-cpu-usage: 80.0
+    max-memory-usage: 85.0
+
+  # Stress Test Profile
+  stress-profile:
+    concurrent-users: 50
+    ramp-up-time: 30
+    test-duration: 300
+    requests-per-second: 20.0
+    target-endpoint: "/api/assignments"
+    test-type: "STRESS"
+    payload-file: null
+    content-type: "application/json"
+    random-payload: true
+    min-think-time: 500
+    max-think-time: 2000
+    max-error-rate: 10.0
+    max-response-time: 3000
+    max-cpu-usage: 85.0
+    max-memory-usage: 90.0
+
+  # Endurance Test Profile
+  endurance-profile:
+    concurrent-users: 20
+    ramp-up-time: 60
+    test-duration: 3600
+    requests-per-second: 5.0
+    target-endpoint: "/api/analytics/dashboard"
+    test-type: "ENDURANCE"
+    payload-file: null
+    content-type: "application/json"
+    random-payload: false
+    min-think-time: 2000
+    max-think-time: 5000
+    max-error-rate: 2.0
+    max-response-time: 2000
+    max-cpu-usage: 75.0
+    max-memory-usage: 80.0
+
+# Performance Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      sla:
+        http.server.requests: 100ms,200ms,500ms,1s
+
+# Logging for Load Testing
+logging:
+  level:
+    com.edusubmit.shared.testing: DEBUG
+    org.springframework.web.client: DEBUG
+    io.micrometer: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{requestId}] %logger{36} - %msg%n"
+
+# Thread Pool Configuration
+thread-pool:
+  loadtest:
+    core-size: 10
+    max-size: 100
+    queue-capacity: 1000
+    keep-alive-seconds: 60
+
+# Test Scenarios
+test-scenarios:
+  # API Endpoint Tests
+  api-endpoints:
+    - name: "health-check"
+      endpoint: "/api/health"
+      method: "GET"
+      concurrent-users: 10
+      duration: 60
+      expected-response-time: 100
+      
+    - name: "user-authentication"
+      endpoint: "/api/auth/login"
+      method: "POST"
+      concurrent-users: 5
+      duration: 120
+      expected-response-time: 500
+      payload: '{"email":"test@example.com","password":"password"}'
+      
+    - name: "assignment-listing"
+      endpoint: "/api/assignments"
+      method: "GET"
+      concurrent-users: 15
+      duration: 180
+      expected-response-time: 300
+      auth-required: true
+      
+    - name: "assignment-submission"
+      endpoint: "/api/submissions"
+      method: "POST"
+      concurrent-users: 8
+      duration: 240
+      expected-response-time: 1000
+      auth-required: true
+      payload: '{"assignmentId":"123","content":"test submission"}'
+
+  # Business Process Tests
+  business-processes:
+    - name: "complete-workflow"
+      description: "Login -> View Assignments -> Submit Assignment"
+      steps:
+        - endpoint: "/api/auth/login"
+          method: "POST"
+          think-time: 2000
+        - endpoint: "/api/assignments"
+          method: "GET"
+          think-time: 3000
+        - endpoint: "/api/submissions"
+          method: "POST"
+          think-time: 5000
+      concurrent-users: 5
+      duration: 300
+      
+    - name: "teacher-workflow"
+      description: "Login -> Create Assignment -> Grade Submissions"
+      steps:
+        - endpoint: "/api/auth/login"
+          method: "POST"
+          think-time: 1000
+        - endpoint: "/api/assignments"
+          method: "POST"
+          think-time: 2000
+        - endpoint: "/api/submissions/pending"
+          method: "GET"
+          think-time: 3000
+      concurrent-users: 3
+      duration: 600
+
+# Performance Thresholds
+performance-thresholds:
+  response-time:
+    excellent: "< 100ms"
+    good: "100-500ms"
+    acceptable: "500-1000ms"
+    poor: "> 1000ms"
+    
+  throughput:
+    excellent: "> 1000 req/min"
+    good: "500-1000 req/min"
+    acceptable: "100-500 req/min"
+    poor: "< 100 req/min"
+    
+  error-rate:
+    excellent: "< 0.1%"
+    good: "0.1-1%"
+    acceptable: "1-5%"
+    poor: "> 5%"
+    
+  resource-usage:
+    cpu:
+      excellent: "< 50%"
+      good: "50-70%"
+      acceptable: "70-85%"
+      poor: "> 85%"
+    memory:
+      excellent: "< 60%"
+      good: "60-75%"
+      acceptable: "75-85%"
+      poor: "> 85%"

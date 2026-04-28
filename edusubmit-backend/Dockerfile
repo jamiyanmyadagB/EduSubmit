@@ -31,10 +31,10 @@ COPY auth-service ./auth-service
 COPY assignment-service ./assignment-service
 
 # Build all modules with tests for quality assurance
-RUN mvn clean package -DskipTests=false -Dmaven.test.failure.ignore=true
+RUN mvn clean package -DskipTests
 
 # Production stage - minimal runtime image
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre-alpine
 
 # Set build arguments
 ARG BUILD_VERSION=1.0.0
@@ -49,18 +49,18 @@ LABEL maintainer="EduSubmit Team" \
       description="EduSubmit Backend Services"
 
 # Install required packages and clean up in single layer
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apk update && \
+    apk add --no-cache \
         curl \
         ca-certificates \
-        && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+        bash \
+    && rm -rf /var/cache/apk/*
 
 # Create application directory with proper permissions
 WORKDIR /app
 
 # Create non-root user for security compliance
-RUN groupadd -r appuser && useradd -r -g appuser -s /bin/false appuser
+RUN addgroup -S appuser && adduser -S -G appuser -s /bin/false appuser
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/api-gateway/target/*.jar ./api-gateway/
@@ -68,7 +68,7 @@ COPY --from=builder /app/auth-service/target/*.jar ./auth-service/
 COPY --from=builder /app/assignment-service/target/*.jar ./assignment-service/
 
 # Copy startup scripts
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Change ownership to non-root user
@@ -89,5 +89,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8080/actuator/health && \
         curl -f http://localhost:8081/actuator/health || exit 1
 
-# Use entrypoint script for flexible startup
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Use direct Java command for startup with flexible JAR finding
+ENTRYPOINT ["sh", "-c", "exec java -jar /app/api-gateway/*.jar"]
