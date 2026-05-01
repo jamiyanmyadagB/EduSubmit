@@ -56,14 +56,14 @@ jobs:
           edusubmit-backend/**/target/failsafe-reports/
 
     - name: Upload Coverage Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: coverage-reports
         path: edusubmit-backend/**/target/site/jacoco/
 
     - name: Generate Test Summary
-      uses: test-summary/action@v2
+      uses: test-summary/action@v4
       if: always()
       with:
         paths: edusubmit-backend/**/target/surefire-reports/*.xml
@@ -135,7 +135,7 @@ jobs:
         args: --severity-threshold=high
 
     - name: Upload Snyk Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: snyk-results
@@ -149,7 +149,7 @@ jobs:
           -DskipTestScope=true
 
     - name: Upload OWASP Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: owasp-results
@@ -205,7 +205,7 @@ jobs:
         echo "Docker image build completed successfully"
 
     - name: Generate SBOM
-      uses: anchore/sbom-action@v0
+      uses: anchore/sbom-action@v4
       with:
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
         format: spdx-json
