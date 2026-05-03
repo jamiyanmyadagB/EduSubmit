@@ -49,13 +49,13 @@ variable "availability_zones" {
 variable "cluster_access_cidrs" {
   description = "CIDR blocks allowed to access EKS cluster endpoint"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = ["49.156.76.148/32"]  # Your actual IP
 }
 
 variable "ssh_access_cidrs" {
   description = "CIDR blocks allowed SSH access to nodes"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = ["49.156.76.148/32"]  # Your actual IP
 }
 
 variable "ssh_key_name" {

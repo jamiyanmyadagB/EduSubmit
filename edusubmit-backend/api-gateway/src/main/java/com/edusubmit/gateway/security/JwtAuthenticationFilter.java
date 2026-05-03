@@ -17,6 +17,7 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 import org.springframework.lang.NonNull;
+import jakarta.annotation.PostConstruct;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +34,13 @@ public class JwtAuthenticationFilter implements WebFilter {
     private SecretKey key;
 
     public JwtAuthenticationFilter() {
-        this.key = Keys.hmacShaKeyFor("mySuperSecretKey123456789012345678901234567890".getBytes(StandardCharsets.UTF_8));
+        // Key will be initialized after properties are loaded
+    }
+    
+    @PostConstruct
+    public void init() {
+        String secret = jwtSecret != null ? jwtSecret : "mySuperSecretKey123456789012345678901234567890";
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     @Override

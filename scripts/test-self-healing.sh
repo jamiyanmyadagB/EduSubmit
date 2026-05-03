@@ -51,7 +51,58 @@ check_kubectl() {
 deploy_test_app() {
     log_step "Deploying self-healing test application..."
     
-    kubectl apply -f k8s/staging/self-healing-test.yaml
+    # Create a simple test deployment inline since YAML file not available
+    kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $DEPLOYMENT_NAME
+  namespace: $NAMESPACE
+  labels:
+    app: self-healing-test
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: self-healing-test
+  template:
+    metadata:
+      labels:
+        app: self-healing-test
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: $SERVICE_NAME
+  namespace: $NAMESPACE
+  labels:
+    app: self-healing-test
+spec:
+  selector:
+    app: self-healing-test
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+EOF
     
     log_info "Waiting for deployment to be ready..."
     kubectl wait --for=condition=available deployment/$DEPLOYMENT_NAME -n $NAMESPACE --timeout=120s
@@ -176,7 +227,8 @@ test_pod_health() {
 cleanup() {
     log_step "Cleaning up test resources..."
     
-    kubectl delete -f k8s/staging/self-healing-test.yaml --ignore-not-found=true
+    kubectl delete deployment $DEPLOYMENT_NAME -n $NAMESPACE --ignore-not-found=true
+    kubectl delete service $SERVICE_NAME -n $NAMESPACE --ignore-not-found=true
     
     log_info "Test resources cleaned up"
 }

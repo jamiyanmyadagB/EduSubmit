@@ -176,7 +176,7 @@ spec:
       - name: docker-registry-secret
       containers:
       - name: api-gateway
-        image: docker.io/edusubmit/backend:latest
+        image: docker.io/edusubmit/backend:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -266,7 +266,7 @@ spec:
       - name: docker-registry-secret
       containers:
       - name: auth-service
-        image: docker.io/edusubmit/backend:latest
+        image: docker.io/edusubmit/backend:v1.0.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8081

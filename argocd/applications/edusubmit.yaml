@@ -5,16 +5,16 @@ metadata:
   namespace: argocd
   labels:
     app: edusubmit
-    environment: staging
+    environment: production
 spec:
   project: default
   source:
     repoURL: https://github.com/jamiyanmyadagB/EduSubmit.git
     targetRevision: main
-    path: k8s/staging
+    path: k8s/production
   destination:
     server: https://kubernetes.default.svc
-    namespace: edusubmit-staging
+    namespace: edusubmit-production
   syncPolicy:
     automated:
       prune: true

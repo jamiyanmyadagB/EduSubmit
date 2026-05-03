@@ -12,10 +12,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - edusubmit.example.com
+    - staging.yourdomain.com
     secretName: edusubmit-tls
   rules:
-  - host: edusubmit.example.com
+  - host: staging.yourdomain.com
     http:
       paths:
       - path: /api/auth(/|$)(.*)

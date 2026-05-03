@@ -14,10 +14,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - edusubmit.com
+    - yourdomain.com
     secretName: edusubmit-prod-tls
   rules:
-  - host: edusubmit.com
+  - host: yourdomain.com
     http:
       paths:
       - path: /api/auth(/|$)(.*)
@@ -27,41 +27,42 @@ spec:
             name: auth-service
             port:
               number: 8081
-      - path: /api/assignments(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: assignment-service
-            port:
-              number: 8082
-      - path: /api/submissions(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: submission-service
-            port:
-              number: 8083
-      - path: /api/grading(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: grading-service
-            port:
-              number: 8084
-      - path: /api/notifications(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: notification-service
-            port:
-              number: 8085
-      - path: /api/exam-schedule(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: exam-schedule-service
-            port:
-              number: 8086
+      # Additional services - Uncomment when deployments are added
+      # - path: /api/assignments(/|$)(.*)
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: assignment-service
+      #       port:
+      #         number: 8082
+      # - path: /api/submissions(/|$)(.*)
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: submission-service
+      #       port:
+      #         number: 8083
+      # - path: /api/grading(/|$)(.*)
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: grading-service
+      #       port:
+      #         number: 8084
+      # - path: /api/notifications(/|$)(.*)
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: notification-service
+      #       port:
+      #         number: 8085
+      # - path: /api/exam-schedule(/|$)(.*)
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: exam-schedule-service
+      #       port:
+      #         number: 8086
       - path: /(/|$)(.*)
         pathType: Prefix
         backend:

@@ -11,9 +11,9 @@
     "install:backend": "cd edusubmit-backend && mvn clean install -DskipTests",
     "build:frontend": "cd edusubmit-frontend && npm run build",
     "build:backend": "cd edusubmit-backend && mvn clean package -DskipTests",
-    "docker:up": "docker-compose -f edusubmit-backend/docker-compose.prod.yml up -d",
-    "docker:down": "docker-compose -f edusubmit-backend/docker-compose.prod.yml down",
-    "docker:logs": "docker-compose -f edusubmit-backend/docker-compose.prod.yml logs -f"
+    "docker:up": "docker-compose -f docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.yml down",
+    "docker:logs": "docker-compose -f docker-compose.yml logs -f"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

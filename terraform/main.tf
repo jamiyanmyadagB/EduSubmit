@@ -286,7 +286,7 @@ output "cluster_endpoint" {
 
 output "cluster_certificate_authority_data" {
   description = "EKS cluster certificate authority data"
-  value       = aws_eks_cluster.edusubmit_cluster.certificate_authority_data
+  value       = aws_eks_cluster.edusubmit_cluster.certificate_authority[0].data
 }
 
 output "node_group_role_arn" {

@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Try actual API if mock doesn't match
-          const response = await fetch('http://localhost:8082/api/auth/login', {
+          const response = await fetch('http://localhost:8081/api/auth/login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -22,7 +22,6 @@ scrape_configs:
       - targets: 
         - 'api-gateway:8080'
         - 'auth-service:8081'
-        - 'assignment-service:8082'
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance
@@ -36,8 +35,7 @@ scrape_configs:
       - role: pod
         namespaces:
           names:
-            - edusubmit-staging
-            - edusubmit-prod
+            - edusubmit-production
     relabel_configs:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
         action: keep
@@ -72,8 +70,7 @@ scrape_configs:
       - role: service
         namespaces:
           names:
-            - edusubmit-staging
-            - edusubmit-prod
+            - edusubmit-production
     relabel_configs:
       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
         action: keep

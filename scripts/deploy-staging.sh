@@ -173,7 +173,6 @@ verify_deployment() {
     local services=(
         "http://localhost:8080/actuator/health"
         "http://localhost:8081/actuator/health"
-        "http://localhost:8761/actuator/health"
     )
     
     for service in "${services[@]}"; do

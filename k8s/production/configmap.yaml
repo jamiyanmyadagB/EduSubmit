@@ -8,7 +8,7 @@ metadata:
     environment: production
 data:
   SPRING_PROFILES_ACTIVE: "production"
-  EUREKA_CLIENT_SERVICE_URL: "http://eureka-prod:8761/eureka"
+  # EUREKA_CLIENT_SERVICE_URL: "http://eureka-prod:8761/eureka"
   SPRING_REDIS_HOST: "redis-service"
   SPRING_REDIS_PORT: "6379"
   JAVA_OPTS: "-Xmx1024m -Xms512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:+HeapDumpOnOutOfMemoryError"
@@ -63,7 +63,6 @@ data:
           - targets: 
             - 'api-gateway:8080'
             - 'auth-service:8081'
-            - 'assignment-service:8082'
         scrape_interval: 10s
         scrape_timeout: 5s
       

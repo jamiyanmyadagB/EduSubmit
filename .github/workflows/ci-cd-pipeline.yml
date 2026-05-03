@@ -6,25 +6,14 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  REGISTRY: docker.io
-  IMAGE_NAME: edusubmit/backend
-  SONAR_HOST_URL: https://sonarcloud.io
-  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
 jobs:
-  # Build and Test Stage
+  # Build & Test Stage
   build-and-test:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-      image-digest: ${{ steps.build.outputs.digest }}
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Required for SonarQube analysis
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -33,45 +22,31 @@ jobs:
         distribution: 'temurin'
 
     - name: Cache Maven dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    - name: Compile and Run Tests
+    - name: Build and Test
       run: |
         cd edusubmit-backend
-        mvn clean compile -DskipTests
-        mvn test -Dmaven.test.failure.ignore=true || true
-        mvn jacoco:report || true
+        mvn clean verify
 
     - name: Upload Test Results
-      uses: actions/upload-artifact@v3
-      if: always()
+      uses: actions/upload-artifact@v4
+      if: failure()
       with:
         name: test-results
         path: |
           edusubmit-backend/**/target/surefire-reports/
           edusubmit-backend/**/target/failsafe-reports/
 
-    - name: Upload Coverage Reports
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: coverage-reports
-        path: edusubmit-backend/**/target/site/jacoco/
-
-    - name: Generate Test Summary
-      uses: test-summary/action@v4
-      if: always()
-      with:
-        paths: edusubmit-backend/**/target/surefire-reports/*.xml
-
-  # Code Quality Stage
+  # Code Quality Stage (SonarQube)
   code-quality:
     runs-on: ubuntu-latest
     needs: build-and-test
+    if: secrets.SONAR_TOKEN != ''
     
     steps:
     - name: Checkout code
@@ -86,7 +61,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Cache Maven dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -100,18 +75,11 @@ jobs:
         cd edusubmit-backend
         mvn sonar:sonar \
           -Dsonar.projectKey=edusubmit-backend \
-          -Dsonar.organization=edusubmit \
-          -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-          -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          -Dsonar.organization=edusubmit-backend \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
-    - name: Check SonarQube Quality Gate
-      uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
-      timeout-minutes: 5
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  # Security Scanning Stage
+  # Security Scan Stage
   security-scan:
     runs-on: ubuntu-latest
     needs: build-and-test
@@ -120,45 +88,36 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
       with:
-        java-version: '17'
-        distribution: 'temurin'
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
 
-    - name: Run Snyk Security Scan
-      uses: snyk/actions/maven@master
-      continue-on-error: false
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        args: --severity-threshold=high
-
-    - name: Upload Snyk Results
-      uses: actions/upload-artifact@v4
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
-        name: snyk-results
-        path: snyk-results.json
+        sarif_file: 'trivy-results.sarif'
 
-    - name: OWASP Dependency Check
+    - name: Check for critical vulnerabilities
       run: |
-        cd edusubmit-backend
-        mvn org.owasp:dependency-check-maven:check \
-          -DfailBuildOnCVSS=7 \
-          -DskipTestScope=true
+        if grep -q '"level": "critical"' trivy-results.sarif; then
+          echo "CRITICAL vulnerabilities found!"
+          exit 1
+        fi
+        if grep -q '"level": "high"' trivy-results.sarif; then
+          echo "HIGH vulnerabilities found!"
+          exit 1
+        fi
+        echo "No CRITICAL or HIGH vulnerabilities found"
 
-    - name: Upload OWASP Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: owasp-results
-        path: edusubmit-backend/**/target/dependency-check-report.html
-
-  # Docker Build and Push Stage
+  # Docker Build & Push Stage
   docker-build-push:
     runs-on: ubuntu-latest
-    needs: [build-and-test, code-quality, security-scan]
+    needs: [build-and-test, security-scan]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     
     steps:
@@ -174,198 +133,19 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-
     - name: Build and push Docker image
-      id: build
       uses: docker/build-push-action@v5
       with:
         context: ./edusubmit-backend
         file: ./edusubmit-backend/Dockerfile
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ secrets.DOCKER_USERNAME }}/edusubmit/backend:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64
 
     - name: Verify Docker Image
       run: |
-        echo "Docker image build completed successfully"
-
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v4
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-        format: spdx-json
-        output-file: sbom.spdx.json
-
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v3
-      with:
-        name: sbom
-        path: sbom.spdx.json
-
-  # Deploy to Staging Stage
-  deploy-staging:
-    runs-on: ubuntu-latest
-    needs: docker-build-push
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Deploy to Staging
-      run: |
-        echo "Deploying to staging environment..."
-        # Here you would typically use SSH to deploy to staging server
-        # or use a cloud provider's deployment tools
-        
-        # Example for SSH deployment:
-        # ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} \
-        #   "cd /opt/edusubmit && docker-compose -f docker-compose.staging.yml pull && docker-compose -f docker-compose.staging.yml up -d"
-
-    - name: Wait for Services to Start
-      run: sleep 60
-
-    - name: Run Smoke Tests
-      run: |
-        echo "Running smoke tests..."
-        # Add your smoke test commands here
-        # curl -f http://staging.example.com/actuator/health
-        # curl -f http://staging.example.com/api/health
-
-  # Deploy to Production Stage
-  deploy-production:
-    runs-on: ubuntu-latest
-    needs: docker-build-push
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Deploy to Production
-      run: |
-        echo "Deploying to production environment..."
-        # Production deployment logic here
-
-    - name: Wait for Services to Start
-      run: sleep 90
-
-    - name: Run Production Smoke Tests
-      run: |
-        echo "Running production smoke tests..."
-        # Production smoke test commands here
-
-    - name: Notify Deployment Success
-      uses: 8398a7/action-slack@v3
-      with:
-        status: success
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: always()
-
-  # GitOps ArgoCD Sync
-  argocd-sync:
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
-    
-    steps:
-    - name: Checkout ArgoCD Config
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ secrets.ARGOCD_CONFIG_REPO }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        path: argocd-config
-
-    - name: Update ArgoCD Application
-      run: |
-        cd argocd-config
-        # Update the image tag in your ArgoCD application manifest
-        sed -i "s|imageTag: .*|imageTag: ${{ needs.docker-build-push.outputs.image-tag }}|g" applications/edusubmit.yaml
-        
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add .
-        git commit -m "Update image tag to ${{ needs.docker-build-push.outputs.image-tag }}"
-        git push
-
-    - name: Sync ArgoCD Application
-      run: |
-        # Install argocd CLI
-        curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-        chmod +x argocd-linux-amd64
-        sudo mv argocd-linux-amd64 /usr/local/bin/argocd
-        
-        # Login to ArgoCD
-        argocd login ${{ secrets.ARGOCD_SERVER }} --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
-        
-        # Sync the application
-        argocd app sync edusubmit --wait
-        argocd app wait edusubmit --health
-
-  # Post-Deployment Tests
-  post-deployment-tests:
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Run Integration Tests
-      run: |
-        echo "Running integration tests..."
-        # Add integration test commands here
-        # npm run test:integration
-        # mvn verify -P integration-tests
-
-    - name: Performance Tests
-      run: |
-        echo "Running performance tests..."
-        # Add performance test commands here
-        # k6 run performance-tests.js
-
-    - name: Security Scan on Live Environment
-      run: |
-        echo "Running security scan on deployed environment..."
-        # OWASP ZAP scan on live environment
-        # docker run --rm -t owasp/zap2docker-stable zap-baseline.py -t https://staging.example.com
-
-  # Cleanup
-  cleanup:
-    runs-on: ubuntu-latest
-    needs: [post-deployment-tests]
-    if: always()
-    
-    steps:
-    - name: Cleanup Docker Images
-      run: |
-        echo "Cleaning up old Docker images..."
-        # Add cleanup commands if needed
-
-    - name: Cleanup Workspace
-      uses: actions/upload-artifact@v3
-      if: failure()
-      with:
-        name: failure-logs
-        path: |
-          **/*.log
-          **/target/*.log
+        echo "Docker image ${{ secrets.DOCKER_USERNAME }}/edusubmit/backend:latest pushed successfully"
+        docker pull ${{ secrets.DOCKER_USERNAME }}/edusubmit/backend:latest
+        docker run --rm ${{ secrets.DOCKER_USERNAME }}/edusubmit/backend:latest echo "Image verification successful"

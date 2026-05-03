@@ -8,8 +8,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -27,9 +29,15 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     
-    private final SecretKey key = Keys.hmacShaKeyFor(
-        "mySuperSecretKey123456789012345678901234567890".getBytes(StandardCharsets.UTF_8)
-    );
+    @Value("${app.jwt.secret:mySuperSecretKey123456789012345678901234567890}")
+    private String jwtSecret;
+    
+    private SecretKey key;
+    
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
