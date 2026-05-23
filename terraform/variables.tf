@@ -67,23 +67,23 @@ variable "ssh_key_name" {
 variable "instance_types" {
   description = "EC2 instance types for EKS nodes"
   type        = list(string)
-  default     = ["t3.medium", "t3.large"]
+  default     = ["t3.micro"]
 }
 
 variable "min_nodes" {
   description = "Minimum number of nodes in node group"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "desired_nodes" {
   description = "Desired number of nodes in node group"
   type        = number
-  default     = 3
+  default     = 1
 }
 
 variable "max_nodes" {
   description = "Maximum number of nodes in node group"
   type        = number
-  default     = 6
+  default     = 1
 }

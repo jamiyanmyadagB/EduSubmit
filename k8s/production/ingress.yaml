@@ -14,10 +14,11 @@ metadata:
 spec:
   tls:
   - hosts:
-    - yourdomain.com
+    - edusubmit.com
+    - www.edusubmit.com
     secretName: edusubmit-prod-tls
   rules:
-  - host: yourdomain.com
+  - host: edusubmit.com
     http:
       paths:
       - path: /api/auth(/|$)(.*)

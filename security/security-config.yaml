@@ -1,0 +1,159 @@
+# Security Configuration
+# Centralized security settings for the EduSubmit application
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:mySuperSecretKey123456789012345678901234567890}
+  access-token-expiration: 900000  # 15 minutes in milliseconds
+  refresh-token-expiration: 604800000  # 7 days in milliseconds
+  issuer: edusubmit
+  audience: edusubmit-api
+
+# Password Security
+password:
+  min-length: 8
+  require-uppercase: true
+  require-lowercase: true
+  require-digit: true
+  require-special-char: true
+  encoding-strength: 10  # BCrypt strength
+
+# Rate Limiting
+rate-limiting:
+  enabled: true
+  default-limit: 100
+  default-window: 60000  # 1 minute in milliseconds
+  api-specific-limits:
+    /api/auth/login:
+      limit: 10
+      window: 300000  # 5 minutes
+    /api/auth/register:
+      limit: 10
+      window: 300000  # 5 minutes
+    /api/submissions:
+      limit: 50
+      window: 60000  # 1 minute
+    /api/files/upload:
+      limit: 20
+      window: 60000  # 1 minute
+
+# CORS Configuration
+cors:
+  allowed-origins:
+    - http://localhost:3000
+    - http://localhost:8080
+    - https://edusubmit.com
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed-headers:
+    - Authorization
+    - Content-Type
+    - X-Requested-With
+  exposed-headers:
+    - X-Total-Count
+  allow-credentials: true
+  max-age: 3600
+
+# SSL/TLS Configuration
+ssl:
+  enabled: ${SSL_ENABLED:false}
+  keystore-path: ${SSL_KEYSTORE_PATH:/path/to/keystore.jks}
+  keystore-password: ${SSL_KEYSTORE_PASSWORD:changeit}
+  key-alias: ${SSL_KEY_ALIAS:tomcat}
+  truststore-path: ${SSL_TRUSTSTORE_PATH:/path/to/truststore.jks}
+  truststore-password: ${SSL_TRUSTSTORE_PASSWORD:changeit}
+
+# API Key Security
+api-key:
+  enabled: true
+  header-name: X-API-Key
+  keys:
+    - name: internal-service
+      key: ${INTERNAL_API_KEY:internal-api-key-change-me}
+      roles:
+        - SERVICE
+    - name: external-integration
+      key: ${EXTERNAL_API_KEY:external-api-key-change-me}
+      roles:
+        - EXTERNAL
+
+# Session Security
+session:
+  timeout: 3600  # 1 hour in seconds
+  same-site-cookie: lax
+  secure-cookie: ${SECURE_COOKIE:true}
+  cookie-name: EDUSUBMIT_SESSION
+
+# File Upload Security
+file-upload:
+  max-file-size: 10485760  # 10MB in bytes
+  max-request-size: 52428800  # 50MB in bytes
+  allowed-extensions:
+    - .pdf
+    - .doc
+    - .docx
+    - .txt
+    - .zip
+  virus-scan-enabled: ${VIRUS_SCAN_ENABLED:false}
+  scan-command: ${VIRUS_SCAN_COMMAND:/usr/bin/clamscan}
+
+# Data Encryption
+encryption:
+  enabled: ${ENCRYPTION_ENABLED:true}
+  algorithm: AES
+  mode: GCM
+  padding: PKCS5
+  key-size: 256
+  key: ${ENCRYPTION_KEY:change-this-to-a-32-byte-key}
+
+# Audit Logging
+audit:
+  enabled: true
+  log-authentication: true
+  log-authorization: true
+  log-data-access: true
+  log-file-modification: true
+  retention-days: 90
+
+# Security Headers
+security-headers:
+  x-content-type-options: nosniff
+  x-frame-options: DENY
+  x-xss-protection: 1; mode=block
+  strict-transport-security: max-age=31536000; includeSubDomains
+  content-security-policy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+
+# IP Whitelisting
+ip-whitelist:
+  enabled: ${IP_WHITELIST_ENABLED:false}
+  allowed-ips:
+    - 127.0.0.1
+    - ::1
+  whitelist-admin-endpoints: true
+
+# Two-Factor Authentication
+2fa:
+  enabled: ${2FA_ENABLED:false}
+  issuer: edusubmit
+  secret-length: 32
+  code-length: 6
+  time-step: 30  # seconds
+
+# Account Lockout
+account-lockout:
+  enabled: true
+  max-attempts: 5
+  lockout-duration: 1800  # 30 minutes in seconds
+  reset-after-success: true
+
+# Password Policy
+password-policy:
+  min-age-days: 0
+  max-age-days: 90
+  history-size: 5
+  prevent-common-passwords: true
+  prevent-user-info-in-password: true

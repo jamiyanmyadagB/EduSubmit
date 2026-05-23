@@ -6,30 +6,29 @@ services:
     image: mysql:8.0
     container_name: edusubmit-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: edusubmit
-      MYSQL_USER: edusubmit_user
-      MYSQL_PASSWORD: edusubmit_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-edusubmit}
+      MYSQL_USER: ${MYSQL_USER:-edusubmit_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-edusubmit_password}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./edusubmit-backend/mysql/init:/docker-entrypoint-initdb.d
     networks:
       - edusubmit-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "edusubmit_user", "-pedusubmit_password"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER:-edusubmit_user}", "-p${MYSQL_PASSWORD:-edusubmit_password}"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-  # Redis for caching and rate limiting
+  # Redis for caching
   redis:
     image: redis:7-alpine
     container_name: edusubmit-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -41,29 +40,54 @@ services:
       timeout: 10s
       retries: 5
 
-  # API Gateway
-  api-gateway:
-    build:
-      context: ./edusubmit-backend
-      dockerfile: Dockerfile
-      target: api-gateway
-    container_name: edusubmit-api-gateway
-    ports:
-      - "8080:8080"
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: edusubmit-minio
+    command: server /data --console-address ":9001"
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - edusubmit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: edusubmit-backend
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_DATABASE: edusubmit
-      MYSQL_USER: edusubmit_user
-      MYSQL_PASSWORD: edusubmit_password
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-edusubmit}
+      MYSQL_USER: ${MYSQL_USER:-edusubmit_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-edusubmit_password}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
     depends_on:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - edusubmit-network
@@ -74,54 +98,18 @@ services:
       timeout: 10s
       retries: 5
 
-  # Auth Service
-  auth-service:
-    build:
-      context: ./edusubmit-backend
-      dockerfile: Dockerfile
-      target: auth-service
-    container_name: edusubmit-auth-service
-    ports:
-      - "8081:8081"
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: edusubmit
-      MYSQL_USER: edusubmit_user
-      MYSQL_PASSWORD: edusubmit_password
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - edusubmit-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
   # Frontend
   frontend:
     build:
-      context: ./edusubmit-frontend
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: edusubmit-frontend
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      REACT_APP_API_BASE_URL: http://localhost:8080
-      REACT_APP_AUTH_BASE_URL: http://localhost:8081
+      REACT_APP_API_BASE_URL: ${REACT_APP_API_BASE_URL:-http://localhost:8080}
     depends_on:
-      api-gateway:
-        condition: service_healthy
-      auth-service:
+      backend:
         condition: service_healthy
     networks:
       - edusubmit-network
@@ -134,7 +122,11 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
   redis_data:
+    driver: local
+  minio_data:
+    driver: local
 
 networks:
   edusubmit-network:
