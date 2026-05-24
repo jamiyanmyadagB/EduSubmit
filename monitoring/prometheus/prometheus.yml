@@ -15,13 +15,12 @@ alerting:
           - alertmanager:9093
 
 scrape_configs:
-  # EduSubmit Application Services
-  - job_name: 'edusubmit-services'
+  # EduSubmit Unified Backend Service
+  - job_name: 'edusubmit-backend'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: 
-        - 'api-gateway:8080'
-        - 'auth-service:8081'
+        - 'backend:8080'
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance

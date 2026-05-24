@@ -1,0 +1,221 @@
+# EduSubmit Deployment Workflow
+# This workflow handles deployment to different environments
+# It runs after successful CI checks on main branch
+
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  AWS_REGION: us-east-1
+
+jobs:
+  # ============================================
+  # JOB 1: Deploy to Staging
+  # Deploys to staging environment on Kubernetes
+  # ============================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event.inputs.environment == 'staging' || github.event.inputs.environment == '')
+    environment:
+      name: staging
+      url: https://staging.edusubmit.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl for Kubernetes cluster
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Update Kubernetes manifests with latest image tags
+        run: |
+          # Update image tags in deployments
+          sed -i "s|image: .*:latest|image: ${{ secrets.DOCKER_USERNAME }}/edusubmit-backend:${{ github.sha }}|g" k8s/staging/deployments.yaml
+          sed -i "s|image: .*:latest|image: ${{ secrets.DOCKER_USERNAME }}/edusubmit-frontend:${{ github.sha }}|g" k8s/staging/deployments.yaml
+          sed -i "s|image: .*:latest|image: ${{ secrets.DOCKER_USERNAME }}/edusubmit-ai-engine:${{ github.sha }}|g" k8s/staging/deployments.yaml
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/staging/deployments.yaml
+          kubectl apply -f k8s/staging/configmap.yaml
+          kubectl apply -f k8s/staging/hpa.yaml
+
+      - name: Wait for deployment to complete
+        run: |
+          kubectl rollout status deployment/backend -n edusubmit-staging --timeout=5m
+          kubectl rollout status deployment/frontend -n edusubmit-staging --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n edusubmit-staging
+          kubectl get services -n edusubmit-staging
+
+      - name: Health check
+        run: |
+          sleep 30
+          kubectl run --rm -i --restart=Never --image=curlimages/curl:latest --namespace=edusubmit-staging -- curl -f http://backend-service:8080/actuator/health || exit 1
+
+  # ============================================
+  # JOB 2: Deploy to Production
+  # Deploys to production environment on Kubernetes
+  # ============================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: https://edusubmit.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl for Kubernetes cluster
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Update Kubernetes manifests with latest image tags
+        run: |
+          # Update image tags in deployments
+          sed -i "s|image: .*:latest|image: ${{ secrets.DOCKER_USERNAME }}/edusubmit-backend:${{ github.sha }}|g" k8s/production/deployments.yaml
+          sed -i "s|image: .*:latest|image: ${{ secrets.DOCKER_USERNAME }}/edusubmit-frontend:${{ github.sha }}|g" k8s/production/deployments.yaml
+          sed -i "s|image: .*:latest|image: ${{ secrets.DOCKER_USERNAME }}/edusubmit-ai-engine:${{ github.sha }}|g" k8s/production/deployments.yaml
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/production/deployments.yaml
+          kubectl apply -f k8s/production/configmap.yaml
+          kubectl apply -f k8s/production/hpa.yaml
+
+      - name: Wait for deployment to complete
+        run: |
+          kubectl rollout status deployment/backend -n edusubmit-production --timeout=5m
+          kubectl rollout status deployment/frontend -n edusubmit-production --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n edusubmit-production
+          kubectl get services -n edusubmit-production
+
+      - name: Health check
+        run: |
+          sleep 30
+          kubectl run --rm -i --restart=Never --image=curlimages/curl:latest --namespace=edusubmit-production -- curl -f http://backend-service:8080/actuator/health || exit 1
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Production deployment successful"
+          else
+            echo "❌ Production deployment failed"
+            exit 1
+          fi
+
+  # ============================================
+  # JOB 3: Deploy to AWS EC2 (Alternative)
+  # Deploys to AWS EC2 using SSH and docker-compose
+  # ============================================
+  deploy-aws-ec2:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    if: github.event.inputs.environment == 'aws-ec2'
+    environment:
+      name: aws-ec2
+      url: https://edusubmit.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to EC2 using SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Navigate to application directory
+            cd /home/ubuntu/edusubmit
+            
+            # Pull latest changes from git
+            git pull origin main
+            
+            # Pull latest Docker images
+            docker-compose pull
+            
+            # Stop existing containers
+            docker-compose down
+            
+            # Start new containers
+            docker-compose up -d
+            
+            # Clean up old images
+            docker image prune -f
+            
+            # Verify deployment
+            docker-compose ps
+
+      - name: Health check
+        run: |
+          sleep 30
+          curl -f https://edusubmit.com/actuator/health || exit 1
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ AWS EC2 deployment successful"
+          else
+            echo "❌ AWS EC2 deployment failed"
+            exit 1
+          fi

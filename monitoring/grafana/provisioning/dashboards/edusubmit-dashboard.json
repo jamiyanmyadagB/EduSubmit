@@ -2,18 +2,18 @@
   "dashboard": {
     "id": null,
     "title": "EduSubmit Application Dashboard",
-    "tags": ["edusubmit", "spring-boot", "microservices"],
+    "tags": ["edusubmit", "spring-boot", "backend"],
     "timezone": "browser",
     "panels": [
       {
         "id": 1,
         "title": "Service Status",
         "type": "stat",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
         "targets": [
           {
-            "expr": "up{job=~\"edusubmit-services\"}",
-            "legendFormat": "{{job}}"
+            "expr": "up{job=\"edusubmit-backend\"}",
+            "legendFormat": "{{instance}}"
           }
         ],
         "fieldConfig": {
@@ -28,110 +28,154 @@
       },
       {
         "id": 2,
-        "title": "Request Rate",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "title": "JVM Memory Used",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
         "targets": [
           {
-            "expr": "sum(rate(http_requests_total{job=~\"edusubmit-services\"}[5m])) by (job)",
-            "legendFormat": "{{job}}"
+            "expr": "jvm_memory_used_bytes{job=\"edusubmit-backend\", area=\"heap\"} / 1024 / 1024",
+            "legendFormat": "Heap Used MB"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes",
+            "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 512}, {"color": "red", "value": 1024}]}
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "CPU Usage",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{job=\"edusubmit-backend\"}[5m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]}
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Database Connections",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "hikaricp_connections_active{job=\"edusubmit-backend\"}",
+            "legendFormat": "Active"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 8}, {"color": "red", "value": 10}]}
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count{job=\"edusubmit-backend\"}[5m])",
+            "legendFormat": "Requests/sec"
           }
         ],
         "yAxes": [{"label": "Requests/sec"}]
       },
       {
-        "id": 3,
-        "title": "Response Time",
+        "id": 6,
+        "title": "Response Time (95th Percentile)",
         "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"edusubmit-services\"}[5m])) by (le, job))",
-            "legendFormat": "95th percentile - {{job}}"
+            "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"edusubmit-backend\"}[5m]))",
+            "legendFormat": "95th Percentile"
           },
           {
-            "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=~\"edusubmit-services\"}[5m])) by (le, job))",
-            "legendFormat": "50th percentile - {{job}}"
+            "expr": "histogram_quantile(0.50, rate(http_server_requests_seconds_bucket{job=\"edusubmit-backend\"}[5m]))",
+            "legendFormat": "50th Percentile"
           }
         ],
         "yAxes": [{"label": "Seconds"}]
       },
       {
-        "id": 4,
-        "title": "Error Rate",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-        "targets": [
-          {
-            "expr": "sum(rate(http_requests_total{job=~\"edusubmit-services\",status=~\"5..\"}[5m])) by (job) / sum(rate(http_requests_total{job=~\"edusubmit-services\"}[5m])) by (job)",
-            "legendFormat": "Error Rate - {{job}}"
-          }
-        ],
-        "yAxes": [{"label": "Percentage", "max": 1, "min": 0}]
-      },
-      {
-        "id": 5,
+        "id": 7,
         "title": "JVM Memory Usage",
         "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
         "targets": [
           {
-            "expr": "jvm_memory_used_bytes{job=~\"edusubmit-services\", area=\"heap\"} / 1024 / 1024",
-            "legendFormat": "Heap Used - {{job}}"
+            "expr": "jvm_memory_used_bytes{job=\"edusubmit-backend\", area=\"heap\"} / 1024 / 1024",
+            "legendFormat": "Heap Used"
           },
           {
-            "expr": "jvm_memory_max_bytes{job=~\"edusubmit-services\", area=\"heap\"} / 1024 / 1024",
-            "legendFormat": "Heap Max - {{job}}"
+            "expr": "jvm_memory_committed_bytes{job=\"edusubmit-backend\", area=\"heap\"} / 1024 / 1024",
+            "legendFormat": "Heap Committed"
           }
         ],
         "yAxes": [{"label": "MB"}]
       },
       {
-        "id": 6,
-        "title": "CPU Usage",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
-        "targets": [
-          {
-            "expr": "rate(process_cpu_seconds_total{job=~\"edusubmit-services\"}[5m]) * 100",
-            "legendFormat": "CPU % - {{job}}"
-          }
-        ],
-        "yAxes": [{"label": "Percentage", "max": 100, "min": 0}]
-      },
-      {
-        "id": 7,
-        "title": "Database Connections",
-        "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-        "targets": [
-          {
-            "expr": "hikaricp_connections_active{job=~\"edusubmit-services\"}",
-            "legendFormat": "Active - {{job}}"
-          },
-          {
-            "expr": "hikaricp_connections_idle{job=~\"edusubmit-services\"}",
-            "legendFormat": "Idle - {{job}}"
-          }
-        ],
-        "yAxes": [{"label": "Connections"}]
-      },
-      {
         "id": 8,
-        "title": "MySQL Performance",
+        "title": "Garbage Collection",
         "type": "graph",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
         "targets": [
           {
-            "expr": "rate(mysql_global_status_queries[5m])",
-            "legendFormat": "Queries/sec"
+            "expr": "rate(jvm_gc_pause_seconds_count{job=\"edusubmit-backend\"}[5m])",
+            "legendFormat": "GC Count/sec"
           },
           {
-            "expr": "mysql_global_status_slow_queries",
-            "legendFormat": "Slow Queries"
+            "expr": "rate(jvm_gc_pause_seconds_sum{job=\"edusubmit-backend\"}[5m])",
+            "legendFormat": "GC Time/sec"
           }
         ],
-        "yAxes": [{"label": "Count"}]
+        "yAxes": [{"label": "Count/Seconds"}]
+      },
+      {
+        "id": 9,
+        "title": "Thread Count",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "jvm_threads_live_threads{job=\"edusubmit-backend\"}",
+            "legendFormat": "Live Threads"
+          },
+          {
+            "expr": "jvm_threads_peak_threads{job=\"edusubmit-backend\"}",
+            "legendFormat": "Peak Threads"
+          }
+        ],
+        "yAxes": [{"label": "Threads"}]
+      },
+      {
+        "id": 10,
+        "title": "HTTP Error Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "targets": [
+          {
+            "expr": "rate(http_server_requests_seconds_count{job=\"edusubmit-backend\",status=~\"5..\"}[5m])",
+            "legendFormat": "5xx Errors/sec"
+          },
+          {
+            "expr": "rate(http_server_requests_seconds_count{job=\"edusubmit-backend\",status=~\"4..\"}[5m])",
+            "legendFormat": "4xx Errors/sec"
+          }
+        ],
+        "yAxes": [{"label": "Errors/sec"}]
       }
     ],
     "time": { "from": "now-1h", "to": "now" },

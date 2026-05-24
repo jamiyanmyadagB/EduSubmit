@@ -12,6 +12,22 @@ jobs:
     name: Run E2E Selenium Tests
     runs-on: ubuntu-latest
     
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: edusubmit
+          MYSQL_USER: edusubmit_user
+          MYSQL_PASSWORD: edusubmit_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,8 +43,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm ci
 
@@ -36,12 +54,12 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
-      - name: Start frontend in background
+      - name: Start frontend with serve
         working-directory: ./frontend
         run: |
-          npm start &
+          npx serve -s build -l 3000 &
           echo $! > frontend.pid
-          sleep 30
+          sleep 10
 
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@v1
@@ -54,6 +72,12 @@ jobs:
       - name: Run E2E tests
         working-directory: ./backend/e2e-tests
         run: mvn clean test -Dbrowser=chrome -Dheadless=true -DbaseUrl=http://localhost:3000
+        env:
+          MYSQL_HOST: localhost
+          MYSQL_PORT: 3306
+          MYSQL_DATABASE: edusubmit
+          MYSQL_USER: edusubmit_user
+          MYSQL_PASSWORD: edusubmit_password
 
       - name: Upload test reports
         if: always()
@@ -91,6 +115,22 @@ jobs:
     name: Run E2E Tests on Firefox
     runs-on: ubuntu-latest
     
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: edusubmit
+          MYSQL_USER: edusubmit_user
+          MYSQL_PASSWORD: edusubmit_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -106,8 +146,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm ci
 
@@ -115,12 +157,12 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
-      - name: Start frontend in background
+      - name: Start frontend with serve
         working-directory: ./frontend
         run: |
-          npm start &
+          npx serve -s build -l 3000 &
           echo $! > frontend.pid
-          sleep 30
+          sleep 10
 
       - name: Set up Firefox
         uses: browser-actions/setup-firefox@v1
@@ -133,6 +175,12 @@ jobs:
       - name: Run E2E tests on Firefox
         working-directory: ./backend/e2e-tests
         run: mvn clean test -Dbrowser=firefox -Dheadless=true -DbaseUrl=http://localhost:3000
+        env:
+          MYSQL_HOST: localhost
+          MYSQL_PORT: 3306
+          MYSQL_DATABASE: edusubmit
+          MYSQL_USER: edusubmit_user
+          MYSQL_PASSWORD: edusubmit_password
 
       - name: Upload test reports
         if: always()
