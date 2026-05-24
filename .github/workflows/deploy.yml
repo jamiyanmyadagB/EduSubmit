@@ -51,6 +51,15 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
 
+      - name: Validate kubeconfig
+        run: |
+          # Check if kubeconfig contains localhost (invalid for CI/CD)
+          if grep -q "localhost" $HOME/.kube/config; then
+            echo "Error: Kubeconfig contains localhost reference. Please configure a remote Kubernetes cluster."
+            echo "Skipping Kubernetes deployment."
+            exit 1
+          fi
+
       - name: Verify cluster connection
         run: |
           kubectl cluster-info
@@ -110,6 +119,15 @@ jobs:
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+
+      - name: Validate kubeconfig
+        run: |
+          # Check if kubeconfig contains localhost (invalid for CI/CD)
+          if grep -q "localhost" $HOME/.kube/config; then
+            echo "Error: Kubeconfig contains localhost reference. Please configure a remote Kubernetes cluster."
+            echo "Skipping Kubernetes deployment."
+            exit 1
+          fi
 
       - name: Verify cluster connection
         run: |
