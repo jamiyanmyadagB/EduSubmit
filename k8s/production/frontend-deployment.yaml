@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: edusubmit-production
+  labels:
+    app: frontend
+    environment: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        environment: production
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      containers:
+      - name: frontend
+        image: docker.io/edusubmit/frontend:v1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        - name: REACT_APP_API_BASE_URL
+          value: "https://edusubmit.com/api"
+        - name: REACT_APP_AUTH_BASE_URL
+          value: "https://edusubmit.com/auth"
+        - name: REACT_APP_ENABLE_AI_GRADING
+          value: "true"
+        - name: REACT_APP_ENABLE_PLAGIARISM_DETECTION
+          value: "true"
+        - name: REACT_APP_ENABLE_EMAIL_NOTIFICATIONS
+          value: "true"
+        - name: REACT_APP_DEBUG
+          value: "false"
+        - name: REACT_APP_LOG_LEVEL
+          value: "error"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: edusubmit-production
+  labels:
+    app: frontend
+    environment: production
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP

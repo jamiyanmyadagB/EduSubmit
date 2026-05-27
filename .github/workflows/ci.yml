@@ -1,0 +1,484 @@
+# EduSubmit CI/CD Pipeline
+# This workflow runs on push and pull request to main and develop branches
+# It includes: unit tests, integration tests, SonarQube quality gate, Snyk dependency scan,
+# Docker build, Trivy image scan, DockerHub push, and AWS EC2 deployment
+
+name: EduSubmit CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  # Environment variables used across jobs
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: us-east-1
+
+jobs:
+  # ============================================
+  # JOB 1: Backend Unit Tests
+  # Runs JUnit 5 + Mockito unit tests for backend services
+  # ============================================
+  backend-unit-tests:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout code
+      # Uses actions/checkout to fetch the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      # Step 2: Set up JDK 17
+      # Installs Java Development Kit 17 using Temurin distribution
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 3: Cache Maven dependencies
+      # Caches Maven dependencies to speed up subsequent builds
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Step 4: Run backend unit tests
+      # Executes Maven test phase with Surefire plugin
+      - name: Run backend unit tests
+        run: |
+          cd backend
+          mvn clean test -DskipITs
+
+      # Step 5: Upload test results
+      # Uploads test results as artifacts for debugging
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-unit-test-results
+          path: |
+            backend/**/target/surefire-reports/
+            backend/**/target/test-results/
+
+      # Step 6: Upload coverage reports
+      # Uploads JaCoCo coverage reports
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-reports
+          path: |
+            backend/**/target/site/jacoco/
+            backend/**/target/jacoco.exec
+
+  # ============================================
+  # JOB 2: Backend Integration Tests
+  # Runs Spring Boot Test + MockMvc integration tests
+  # ============================================
+  backend-integration-tests:
+    name: Backend Integration Tests
+    runs-on: ubuntu-latest
+    needs: backend-unit-tests
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 3: Cache Maven dependencies
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Step 4: Run backend integration tests
+      # Executes Maven integration-test phase with Failsafe plugin
+      - name: Run backend integration tests
+        run: |
+          cd backend
+          mvn clean verify -DskipUTs
+
+      # Step 5: Upload integration test results
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-integration-test-results
+          path: |
+            backend/**/target/failsafe-reports/
+            backend/**/target/integration-test-results/
+
+  # ============================================
+  # JOB 3: Frontend Unit Tests
+  # Runs Jest + React Testing Library tests for frontend
+  # ============================================
+  frontend-unit-tests:
+    name: Frontend Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js 18
+      # Installs Node.js version 18 for React application
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # Step 3: Install frontend dependencies
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      # Step 4: Run frontend unit tests
+      # Executes Jest tests with coverage
+      - name: Run frontend unit tests
+        run: |
+          cd frontend
+          npm test -- --coverage --watchAll=false
+
+      # Step 5: Upload test results
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-test-results
+          path: |
+            frontend/coverage/
+            frontend/junit.xml
+
+  # ============================================
+  # JOB 4: SonarQube Quality Gate
+  # Runs SonarQube analysis and enforces quality gate
+  # ============================================
+  sonarqube:
+    name: SonarQube Quality Gate
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests]
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history required for SonarQube
+
+      # Step 2: Set up JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 3: Cache Maven dependencies
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      # Step 4: Run SonarQube analysis
+      # Analyzes code quality and enforces quality gate
+      - name: SonarQube Analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          cd backend
+          mvn sonar:sonar \
+            -Dsonar.projectKey=edusubmit-backend \
+            -Dsonar.organization=edusubmit-backend \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.qualitygate.wait=true
+
+  # ============================================
+  # JOB 5: Snyk Dependency Scan
+  # Scans dependencies for security vulnerabilities
+  # ============================================
+  snyk-scan:
+    name: Snyk Dependency Scan
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests]
+    if: secrets.SNYK_TOKEN != ''
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 3: Run Snyk scan for backend
+      # Scans Maven dependencies for vulnerabilities
+      - name: Run Snyk scan for backend
+        uses: snyk/actions/maven@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+          command: monitor
+
+      # Step 4: Set up Node.js 18
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # Step 5: Run Snyk scan for frontend
+      # Scans npm dependencies for vulnerabilities
+      - name: Run Snyk scan for frontend
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --file=frontend/package.json
+          command: monitor
+
+  # ============================================
+  # JOB 6: Docker Build
+  # Builds multi-stage Docker images for all services
+  # ============================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [sonarqube, snyk-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Docker Buildx
+      # Sets up Docker Buildx for multi-platform builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: Log in to Docker Hub
+      # Authenticates with Docker Hub for pushing images
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Step 4: Build and push backend image
+      # Builds multi-stage Docker image for backend services
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/edusubmit-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/edusubmit-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      # Step 5: Build and push frontend image
+      # Builds multi-stage Docker image for frontend
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/edusubmit-frontend:latest
+            ${{ secrets.DOCKER_USERNAME }}/edusubmit-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      # Step 6: Build and push AI engine image
+      # Builds multi-stage Docker image for AI engine
+      - name: Build and push AI engine image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai-engine
+          file: ./ai-engine/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/edusubmit-ai-engine:latest
+            ${{ secrets.DOCKER_USERNAME }}/edusubmit-ai-engine:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  # ============================================
+  # JOB 7: Trivy Image Scan
+  # Scans Docker images for security vulnerabilities
+  # ============================================
+  trivy-scan:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    needs: docker-build
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Scan backend image
+      # Scans backend Docker image for vulnerabilities
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/edusubmit-backend:latest
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # Step 3: Upload backend scan results
+      - name: Upload backend scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-backend-results.sarif'
+
+      # Step 4: Scan frontend image
+      # Scans frontend Docker image for vulnerabilities
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/edusubmit-frontend:latest
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # Step 5: Upload frontend scan results
+      - name: Upload frontend scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-frontend-results.sarif'
+
+      # Step 6: Scan AI engine image
+      # Scans AI engine Docker image for vulnerabilities
+      - name: Scan AI engine image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/edusubmit-ai-engine:latest
+          format: 'sarif'
+          output: 'trivy-ai-engine-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # Step 7: Upload AI engine scan results
+      - name: Upload AI engine scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-ai-engine-results.sarif'
+
+  # ============================================
+  # JOB 8: Deploy to AWS EC2
+  # Deploys application to AWS EC2 instance
+  # ============================================
+  deploy-aws:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: trivy-scan
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://edusubmit.com
+    
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Configure AWS credentials
+      # Sets up AWS CLI with credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Step 3: Deploy to EC2 using SSH
+      # Connects to EC2 instance and deploys using docker-compose
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Navigate to application directory
+            cd /home/ubuntu/edusubmit
+            
+            # Pull latest changes from git
+            git pull origin main
+            
+            # Pull latest Docker images
+            docker-compose pull
+            
+            # Stop existing containers
+            docker-compose down
+            
+            # Start new containers
+            docker-compose up -d
+            
+            # Clean up old images
+            docker image prune -f
+            
+            # Verify deployment
+            docker-compose ps
+
+      # Step 4: Health check
+      # Verifies that the application is running correctly
+      - name: Health check
+        run: |
+          sleep 30  # Wait for services to start
+          curl -f https://edusubmit.com/health || exit 1
+
+      # Step 5: Notify deployment status
+      # Sends notification about deployment status
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "Deployment to AWS EC2 successful"
+          else
+            echo "Deployment to AWS EC2 failed"
+            exit 1
+          fi

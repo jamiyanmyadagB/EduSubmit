@@ -1,0 +1,104 @@
+server:
+  port: 8080
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  application:
+    name: api-gateway
+  main:
+    allow-bean-definition-overriding: true
+    web-application-type: reactive
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+  
+  cloud:
+    config:
+      enabled: false
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      
+  redis:
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
+    password: ${SPRING_REDIS_PASSWORD:}
+    database: 0
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8080}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:INFO}
+    org.springframework.web.reactive: ${LOG_LEVEL_WEB:INFO}
+    com.edusubmit.gateway: ${LOG_LEVEL_APP:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Application specific
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET:default-secret-key-change-in-production}
+    expiration: 86400000 # 24 hours
+  
+  rate-limit:
+    requests-per-second: 100
+    burst-capacity: 200
+  
+  circuit-breaker:
+    failure-threshold: 50
+    timeout-duration: 30s
+    recovery-timeout: 60s
+
+# CORS Configuration
+cors:
+  allowed-origins: 
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "https://edusubmit.com"
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600

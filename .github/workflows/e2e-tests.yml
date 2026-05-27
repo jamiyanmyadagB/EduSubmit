@@ -1,0 +1,112 @@
+name: E2E Selenium Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    name: Run E2E Selenium Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: edusubmit
+          MYSQL_USER: edusubmit_user
+          MYSQL_PASSWORD: edusubmit_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Start frontend with serve
+        working-directory: ./frontend
+        run: |
+          npx serve -s build -l 3000 &
+          echo $! > frontend.pid
+          sleep 10
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Set up ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      - name: Run E2E tests
+        working-directory: ./backend/e2e-tests
+        run: mvn clean test -Dbrowser=chrome -Dheadless=true -DbaseUrl=http://localhost:3000
+        env:
+          MYSQL_HOST: localhost
+          MYSQL_PORT: 3306
+          MYSQL_DATABASE: edusubmit
+          MYSQL_USER: edusubmit_user
+          MYSQL_PASSWORD: edusubmit_password
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extent-reports
+          path: backend/e2e-tests/target/extent-reports/
+          retention-days: 30
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots
+          path: backend/e2e-tests/target/screenshots/
+          retention-days: 30
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: backend/e2e-tests/target/test-logs/
+          retention-days: 30
+
+      - name: Kill frontend process
+        if: always()
+        run: |
+          if [ -f frontend/frontend.pid ]; then
+            kill $(cat frontend/frontend.pid) || true
+            rm frontend/frontend.pid
+          fi
+

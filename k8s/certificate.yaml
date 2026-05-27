@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: edusubmit-tls
+  namespace: edusubmit-production
+spec:
+  secretName: edusubmit-tls
+  dnsNames:
+  - edusubmit.com
+  - www.edusubmit.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io

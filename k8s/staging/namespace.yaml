@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edusubmit-staging
+  labels:
+    name: edusubmit-staging
+    environment: staging
+    project: edusubmit
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edusubmit-monitoring
+  labels:
+    name: edusubmit-monitoring
+    environment: staging
+    project: edusubmit

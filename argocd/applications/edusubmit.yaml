@@ -3,18 +3,28 @@ kind: Application
 metadata:
   name: edusubmit
   namespace: argocd
+<<<<<<< HEAD
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   labels:
     app: edusubmit
+=======
+  labels:
+    app: edusubmit
+    environment: production
+>>>>>>> origin/main
 spec:
   project: default
   source:
     repoURL: https://github.com/jamiyanmyadagB/EduSubmit.git
     targetRevision: main
+<<<<<<< HEAD
     path: k8s/
     directory:
       recurse: true
+=======
+    path: k8s/production
+>>>>>>> origin/main
   destination:
     server: https://kubernetes.default.svc
     namespace: edusubmit-production
@@ -24,12 +34,27 @@ spec:
       selfHeal: true
       allowEmpty: false
     syncOptions:
+<<<<<<< HEAD
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground
       - PruneLast=true
+=======
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+>>>>>>> origin/main
     retry:
       limit: 5
       backoff:
         duration: 5s
         factor: 2
         maxDuration: 3m
+<<<<<<< HEAD
+=======
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas
+  revisionHistoryLimit: 3
+>>>>>>> origin/main

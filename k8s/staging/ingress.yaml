@@ -1,0 +1,85 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edusubmit-ingress
+  namespace: edusubmit-staging
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
+    # SPA routing support
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($uri !~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$) {
+        rewrite ^(/.*)$ /index.html break;
+      }
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - edusubmit.cloud-ip.cc
+    secretName: edusubmit-tls-prod
+  rules:
+  - host: edusubmit.cloud-ip.cc
+    http:
+      paths:
+      # Frontend SPA - Serve React app
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+      # API Gateway
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
+      # Auth Service
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 8081
+      # Additional services - Uncomment when deployments are added
+      # - path: /api/assignments
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: assignment-service
+      #       port:
+      #         number: 8082
+      # - path: /api/submissions
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: submission-service
+      #       port:
+      #         number: 8083
+      # - path: /api/grading
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: grading-service
+      #       port:
+      #         number: 8084
+      # - path: /api/notifications
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: notification-service
+      #       port:
+      #         number: 8085
+      # - path: /api/exam-schedule
+      #   pathType: Prefix
+      #   backend:
+      #     service:
+      #       name: exam-schedule-service
+      #       port:
+      #         number: 8086

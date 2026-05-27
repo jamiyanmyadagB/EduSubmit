@@ -1,0 +1,358 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "EduSubmit Business Analytics",
+    "tags": ["edusubmit", "business", "analytics"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "business_users_active",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "displayMode": "list",
+              "orientation": "horizontal"
+            },
+            "mappings": [],
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 500
+                },
+                {
+                  "color": "red",
+                  "value": 1000
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "User Registration Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(business_users_registered[5m]) * 60",
+            "legendFormat": "Registrations/min"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Registrations per minute"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 6,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Pending Assignments",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "business_assignments_pending",
+            "legendFormat": "Pending"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "red",
+                  "value": 100
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 0
+        }
+      },
+      {
+        "id": 4,
+        "title": "Assignment Submissions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(business_assignments_submitted[5m]) * 60",
+            "legendFormat": "Submissions/min"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "Average Grading Time",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "business_assignments_grading_time_mean",
+            "legendFormat": "Avg Time (ms)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 5000
+                },
+                {
+                  "color": "red",
+                  "value": 10000
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 8
+        }
+      },
+      {
+        "id": 6,
+        "title": "Active Courses",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "business_courses_active",
+            "legendFormat": "Active Courses"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 8
+        }
+      },
+      {
+        "id": 7,
+        "title": "API Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "business_api_response_time_mean",
+            "legendFormat": "Average Response Time"
+          },
+          {
+            "expr": "histogram_quantile(0.95, business_api_response_time_seconds)",
+            "legendFormat": "95th Percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.99, business_api_response_time_seconds)",
+            "legendFormat": "99th Percentile"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Response Time (ms)"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        }
+      },
+      {
+        "id": 8,
+        "title": "Error Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(business_api_errors[5m]) / rate(business_api_response_time_count[5m]) * 100",
+            "legendFormat": "Error Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 1
+                },
+                {
+                  "color": "red",
+                  "value": 5
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 16
+        }
+      },
+      {
+        "id": 9,
+        "title": "Cache Hit Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(business_cache_hits[5m]) / (rate(business_cache_hits[5m]) + rate(business_cache_misses[5m])) * 100",
+            "legendFormat": "Hit Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 70
+                },
+                {
+                  "color": "green",
+                  "value": 85
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 16
+        }
+      },
+      {
+        "id": 10,
+        "title": "Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(business_database_queries[5m]) * 60",
+            "legendFormat": "Queries/min"
+          },
+          {
+            "expr": "rate(business_database_slow_queries[5m]) * 60",
+            "legendFormat": "Slow Queries/min"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        }
+      },
+      {
+        "id": 11,
+        "title": "Total Enrollments",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "business_courses_total_enrollments",
+            "legendFormat": "Total Enrollments"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 24
+        }
+      },
+      {
+        "id": 12,
+        "title": "Plagiarism Check Time",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "business_submissions_plagiarism_check_time_mean",
+            "legendFormat": "Avg Time (ms)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms"
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 24
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
