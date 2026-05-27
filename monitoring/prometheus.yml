@@ -1,0 +1,60 @@
+# ═══════════════════════════════════════════
+# Prometheus Configuration for EduSubmit
+# ═══════════════════════════════════════════
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: edusubmit
+    replica: "{{.ExternalURL}}"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load alert rules
+rule_files:
+  - "alert_rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # ─── EduSubmit Backend ───
+  - job_name: "edusubmit-backend"
+    static_configs:
+      - targets: ["edusubmit-backend:3000"]
+    metrics_path: "/actuator/prometheus"
+    scrape_interval: 15s
+
+  # ─── AI Engine ───
+  - job_name: "edusubmit-ai"
+    static_configs:
+      - targets: ["ai-engine:5000"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+
+  # ─── MySQL Exporter ───
+  - job_name: "mysql"
+    static_configs:
+      - targets: ["mysql-exporter:9104"]
+    scrape_interval: 15s
+
+  # ─── Redis Exporter ───
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+    scrape_interval: 15s
+
+  # ─── Node Exporter ───
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    scrape_interval: 15s
+
+  # ─── Prometheus Self ───
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

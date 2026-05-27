@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edusubmit-backend
+  namespace: edusubmit-production
+  labels:
+    app: edusubmit-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edusubmit-backend
+  template:
+    metadata:
+      labels:
+        app: edusubmit-backend
+    spec:
+      containers:
+        - name: backend
+          image: edusubmit/backend:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: edusubmit-config
+          env:
+            - name: DATABASE_URL
+              value: "mysql://edusubmit:edusubmit_pass@mysql-service:3306/edusubmit"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: edusubmit-secrets
+                  key: jwt-secret
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: edusubmit-secrets
+                  key: app-secret
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /api/trpc/ping
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: uploads-pvc

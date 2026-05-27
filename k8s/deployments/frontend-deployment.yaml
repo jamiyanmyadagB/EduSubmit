@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edusubmit-frontend
+  namespace: edusubmit-production
+  labels:
+    app: edusubmit-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edusubmit-frontend
+  template:
+    metadata:
+      labels:
+        app: edusubmit-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: edusubmit/frontend:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"

@@ -1,0 +1,11 @@
+# ═══════════════════════════════════════════
+# EduSubmit Kubernetes Namespace
+# ═══════════════════════════════════════════
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: edusubmit-production
+  labels:
+    name: edusubmit-production
+    environment: production
