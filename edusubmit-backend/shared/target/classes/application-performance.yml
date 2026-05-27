@@ -1,0 +1,110 @@
+# Performance Optimization Configuration
+spring:
+  profiles:
+    active: performance
+    
+  # Redis Configuration
+  redis:
+    host: ${REDIS_HOST:redis-service}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 8
+        min-idle: 2
+        max-wait: 2000ms
+        
+  # Cache Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000
+      cache-null-values: false
+      
+  # Database Performance
+  datasource:
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+      
+  # JPA Performance
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        jdbc:
+          batch_versioned_data: true
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+          region:
+            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+        javax:
+          cache:
+            provider: org.ehcache.jsr107.EhcacheCachingProvider
+        generate_statistics: true
+        session:
+          events:
+            log:
+              LOG_QUERIES_SLOWER_THAN_MS: 100
+
+# Management & Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,caches,configprops,env,httptrace,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      sla:
+        http.server.requests: 100ms,200ms,500ms,1s
+    tags:
+      application: edusubmit
+      environment: staging
+      
+# Logging Configuration
+logging:
+  level:
+    org.springframework.cache: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.zaxxer.hikari: INFO
+    com.edusubmit: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{requestId}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{requestId}] %logger{36} - %msg%n"
+
+# Performance Monitoring
+performance:
+  monitoring:
+    slow-request-threshold: 1000
+    slow-query-threshold: 100
+    cache-statistics-enabled: true
+    database-statistics-enabled: true
+    request-logging-enabled: true
