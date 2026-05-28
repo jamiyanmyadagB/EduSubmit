@@ -3,10 +3,7 @@
 ## Phase 1 — Backend wiring + contract enforcement
 - [ ] Read and verify each backend service directory exists under `edusubmit-backend/` (auth, assignment, submission, grading, notification, exam-schedule) and whether they are registered as Maven modules.
 - [x] Update `edusubmit-backend/pom.xml` to include missing microservices as modules (keeping your architecture unchanged).
-
 - [x] Enforce consistent response wrapper `{ success, data, message }` across auth/gateway/assignment/submission/grading/exams/notifications.
-
-
 - [ ] Implement/adjust endpoints to match the exact paths and RBAC rules from the spec (e.g., `/api/auth/login`, `/api/assignments/**`, `/api/submissions/**`, `/api/grades/**`, `/api/exams/**`, `/api/notifications/**`, `/api/admin/**`).
 - [ ] Validate JWT implementation: JJWT, BCrypt hashing, 24h expiry, claims: `userId,email,role`, secret from `JWT_SECRET`.
 
@@ -32,3 +29,8 @@
 - [ ] Verify ELK (Logstash) config.
 - [ ] Wire Vault secrets into Spring Boot via bootstrap.yml + vault config.
 - [ ] Populate Terraform + ArgoCD + PagerDuty alerting.
+
+## Step log (in-progress)
+- [ ] Phase 1 Step B/C: inspect and implement endpoints+entities+RBAC for exact `/api/...` spec.
+- [ ] Phase 1 Step C: verify JWT claims/expiry/secret + BCrypt hashing correctness.
+- [ ] After B/C: add unit/integration tests.
