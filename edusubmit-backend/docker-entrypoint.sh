@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
@@ -28,12 +28,10 @@ wait_for_service() {
 check_database() {
     echo "Checking database connectivity..."
     
-    # Wait for MySQL if configured
     if [ ! -z "$DB_HOST" ] && [ ! -z "$DB_PORT" ]; then
         wait_for_service $DB_HOST $DB_PORT "MySQL Database"
     fi
     
-    # Wait for Redis if configured
     if [ ! -z "$REDIS_HOST" ] && [ ! -z "$REDIS_PORT" ]; then
         wait_for_service $REDIS_HOST $REDIS_PORT "Redis Cache"
     fi
@@ -41,32 +39,31 @@ check_database() {
 
 # Function to set JVM options based on available memory
 set_jvm_options() {
-    # Calculate memory settings based on container limits
     if [ -f /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
         local memory_limit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)
         local memory_mb=$((memory_limit / 1024 / 1024))
         
-        # Set heap size to 70% of available memory, max 1GB
         local heap_size=$((memory_mb * 70 / 100))
         if [ $heap_size -gt 1024 ]; then
             heap_size=1024
         fi
         
-        export JAVA_OPTS="-Xmx${heap_size}m -Xms${heap_size/2}m $JAVA_OPTS"
+        export JAVA_OPTS="-Xmx${heap_size}m -Xms$((heap_size / 2))m $JAVA_OPTS"
         echo "Set JVM options: $JAVA_OPTS"
     fi
 }
 
 # Function to start a specific service
 start_service() {
-    local service=$1
-    local jar_path="./$service"
+    # Since your Dockerfile copies files to /app/app.jar, 
+    # we point directly to that file.
+    local jar_path="/app/app.jar" 
     
     if [ -f "$jar_path" ]; then
-        echo "Starting $service..."
-        exec java $JAVA_OPTS -Dspring.profiles.active=$SPRING_PROFILES_ACTIVE -jar "$jar_path"
+        echo "Starting $jar_path..."
+        exec java $JAVA_OPTS -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod} -jar "$jar_path"
     else
-        echo "JAR file not found for service: $service"
+        echo "JAR file not found at: $jar_path"
         exit 1
     fi
 }
@@ -74,40 +71,28 @@ start_service() {
 # Main execution
 main() {
     echo "Starting EduSubmit Backend Services..."
-    echo "Build Version: ${BUILD_VERSION:-unknown}"
-    echo "Git Commit: ${GIT_COMMIT:-unknown}"
-    echo "Build Date: ${BUILD_DATE:-unknown}"
     
-    # Set JVM options
     set_jvm_options
-    
-    # Check dependencies
     check_database
     
-    # Determine which service to start
     SERVICE_TO_START=${SERVICE_TO_START:-api-gateway}
     
-    # Find the JAR file for the service (only existing services)
     case $SERVICE_TO_START in
-        "api-gateway")
-            start_service "api-gateway/edusubmit-api-gateway-1.0.0.jar"
-            ;;
-        "auth-service")
-            start_service "auth-service/edusubmit-auth-service-1.0.0.jar"
-            ;;
-        "assignment-service")
-            start_service "assignment-service/edusubmit-assignment-service-1.0.0.jar"
-            ;;
+        "api-gateway")          start_service "api-gateway/edusubmit-api-gateway-1.0.0.jar" ;;
+        "auth-service")         start_service "auth-service/edusubmit-auth-service-1.0.0.jar" ;;
+        "assignment-service")   start_service "assignment-service/edusubmit-assignment-service-1.0.0.jar" ;;
+        "eureka-server")        start_service "eureka-server/edusubmit-eureka-server-1.0.0.jar" ;;
+        "submission-service")   start_service "submission-service/edusubmit-submission-service-1.0.0.jar" ;;
+        "grading-service")      start_service "grading-service/edusubmit-grading-service-1.0.0.jar" ;;
+        "notification-service") start_service "notification-service/edusubmit-notification-service-1.0.0.jar" ;;
+        "exam-schedule-service") start_service "exam-schedule-service/edusubmit-exam-schedule-service-1.0.0.jar" ;;
         *)
             echo "Unknown service: $SERVICE_TO_START"
-            echo "Available services: api-gateway, auth-service, assignment-service"
             exit 1
             ;;
     esac
 }
 
-# Handle signals gracefully
 trap 'echo "Received shutdown signal, terminating..."; exit 0' SIGTERM SIGINT
 
-# Run main function
 main "$@"

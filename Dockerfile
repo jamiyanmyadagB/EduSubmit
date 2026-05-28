@@ -25,9 +25,8 @@ FROM node:20-alpine AS runtime
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init curl
 
-# Create non-root user
-RUN addgroup -g 1000 appgroup && adduser -u 1000 -G appgroup -s /bin/sh -D appuser
-
+# Create non-root user and group
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup -h /app -s /bin/sh
 WORKDIR /app
 
 # Copy built application

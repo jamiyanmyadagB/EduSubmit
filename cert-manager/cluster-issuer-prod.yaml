@@ -5,15 +5,8 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: admin@edusubmit.com
+    email: baatarjamia@gmail.com
     privateKeySecretRef:
-<<<<<<< HEAD
-      name: letsencrypt-prod
-    solvers:
-      - http01:
-          ingress:
-            class: nginx
-=======
       name: letsencrypt-prod-account-key
     solvers:
     - http01:
@@ -23,4 +16,3 @@ spec:
             spec:
               nodeSelector:
                 kubernetes.io/os: linux
->>>>>>> origin/main

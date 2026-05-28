@@ -12,7 +12,11 @@
 
     <name>EduSubmit Backend</name>
     <description>Smart Assignment AI System - Backend Microservices</description>
-
+    <modules>
+        <module>api-gateway</module>
+        <module>auth-service</module>
+        <module>eureka-server</module>
+    </modules>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
