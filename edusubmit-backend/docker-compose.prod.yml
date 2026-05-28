@@ -1,6 +1,9 @@
 version: '3.8'
 
+name: edusubmit-prod
+
 services:
+
   mysql:
     image: mysql:8.0
     container_name: edusubmit-mysql-prod
@@ -45,18 +48,22 @@ services:
     image: minio/minio:latest
     container_name: edusubmit-minio-prod
     command: server /data --console-address ":9001"
+
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_DEFAULT_BUCKETS: ${MINIO_DEFAULT_BUCKETS}
       MINIO_SERVER_URL: ${MINIO_SERVER_URL}
       MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+
     volumes:
       - minio_prod_data:/data
       - minio_certs:/root/.minio/certs
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
     networks:
       - edusubmit-network
     restart: always
@@ -66,13 +73,18 @@ services:
       timeout: 10s
       retries: 5
 
+
   # API Gateway - Production with load balancing
   api-gateway:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
+    
+
     image: edusubmit/api-gateway:prod
-    container_name: edusubmit-api-gateway-prod
+
+
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
       EUREKA_CLIENT_SERVICE_URL: http://eureka-prod:8761/eureka
@@ -113,7 +125,7 @@ services:
       context: ./auth-service
       dockerfile: Dockerfile
     image: edusubmit/auth-service:prod
-    container_name: edusubmit-auth-service-prod
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
       EUREKA_CLIENT_SERVICE_URL: http://eureka-prod:8761/eureka
@@ -124,6 +136,7 @@ services:
       JAVA_OPTS: "-Xmx256m -Xms128m"
     ports:
       - "8081:8081"
+
     depends_on:
       - mysql
       - eureka-prod
@@ -151,7 +164,7 @@ services:
       context: ./assignment-service
       dockerfile: Dockerfile
     image: edusubmit/assignment-service:prod
-    container_name: edusubmit-assignment-service-prod
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
       EUREKA_CLIENT_SERVICE_URL: http://eureka-prod:8761/eureka
@@ -184,8 +197,12 @@ services:
 
   # Eureka Service Discovery - Production
   eureka-prod:
-    image: springcloud/eureka-server:latest
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    image: edusubmit/eureka-server:prod
     container_name: edusubmit-eureka-prod
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
     ports:
@@ -279,11 +296,17 @@ services:
 volumes:
   mysql_backups:
     driver: local
+  mysql_prod_data:
+    driver: local
+
   redis_prod_data:
     driver: local
   minio_certs:
     driver: local
+  minio_prod_data:
+    driver: local
   prometheus_prod_data:
+
     driver: local
   grafana_prod_data:
     driver: local

@@ -16,6 +16,11 @@
         <module>api-gateway</module>
         <module>auth-service</module>
         <module>eureka-server</module>
+        <module>assignment-service</module>
+        <module>submission-service</module>
+        <module>grading-service</module>
+        <module>notification-service</module>
+        <module>exam-schedule-service</module>
     </modules>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

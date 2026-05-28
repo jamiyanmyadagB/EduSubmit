@@ -1,24 +1,37 @@
 version: "3.8"
 
 services:
-  # ─── New Microservices Stack ───
+  # ─── New Microservices Stack (Updated for Local Builds) ───
   eureka-server:
+    build:
+      context: ./edusubmit-backend/eureka-server  # Adjust path if different in your root
+      dockerfile: Dockerfile
     image: edusubmit/eureka-server:latest
-    environment:
-      - SERVICE_TO_START=eureka-server
     container_name: edusubmit-eureka
     ports:
       - "8761:8761"
+    environment:
+      - SERVICE_TO_START=eureka-server
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8761"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - edusubmit-net
     restart: unless-stopped
 
   auth-service:
+    build:
+      context: ./edusubmit-backend/auth-service
+      dockerfile: Dockerfile
     image: edusubmit/auth-service:latest
     container_name: edusubmit-auth
     depends_on:
-      - eureka-server
-      - mysql
+      eureka-server:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/edusubmit
@@ -27,13 +40,18 @@ services:
     restart: unless-stopped
 
   api-gateway:
+    build:
+      context: ./edusubmit-backend/api-gateway
+      dockerfile: Dockerfile
     image: edusubmit/api-gateway:latest
     container_name: edusubmit-gateway
     ports:
       - "8080:8080"
     depends_on:
-      - eureka-server
-      - auth-service
+      eureka-server:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     networks:
@@ -113,9 +131,6 @@ services:
   # ─── AI Engine ───
   ai-engine:
     image: koorkon/edusubmit-ai-engine:latest
-    # build:
-    #   context: ./ai-engine
-    #   dockerfile: Dockerfile
     container_name: edusubmit-ai
     environment:
       PORT: "5000"
@@ -221,27 +236,10 @@ services:
       - edusubmit-net
     restart: unless-stopped
 
-  # ─── HashiCorp Vault ───
-  # vault:
-  #   image: vault:1.15
-  #   container_name: edusubmit-vault
-  #   cap_add:
-  #     - IPC_LOCK
-  #   environment:
-  #     VAULT_DEV_ROOT_TOKEN_ID: myroot
-  #     VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
-  #   ports:
-  #     - "8200:8200"
-  #   networks:
-  #     - edusubmit-net
-  #   restart: unless-stopped
-
-# ─── Networks ───
 networks:
   edusubmit-net:
     driver: bridge
 
-# ─── Volumes ───
 volumes:
   mysql_data:
   grafana_data:
