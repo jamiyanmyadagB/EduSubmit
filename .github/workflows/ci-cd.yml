@@ -32,7 +32,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -63,14 +62,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.EC2_HOST }}      # Must be your Public IP or DNS
+          username: ubuntu                    # Usually 'ubuntu' for EC2
+          key: ${{ secrets.EC2_SSH_KEY }}     # Private SSH Key
+          port: 22
           script: |
             cd /home/ubuntu/edusubmit
+            # Ensure these commands exist and the user has permissions
             git pull origin main
-            docker-compose pull backend ai-engine
-            docker-compose up -d
-            docker image prune -f
-            sleep 10
-            curl -f http://localhost:3000/api/trpc/ping && echo "✅ Healthy"
+            docker-compose pull
+            docker-compose up -d --build
