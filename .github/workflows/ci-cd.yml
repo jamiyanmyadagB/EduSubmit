@@ -1,4 +1,4 @@
-name: EduSubmit CI/CD Pipeline
+name: EduSubmit Pipeline
 
 on:
   push:
