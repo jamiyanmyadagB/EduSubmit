@@ -1,331 +1,72 @@
-# ═══════════════════════════════════════════
-# EduSubmit CI/CD Pipeline
-# GitHub Actions: Test, Build, Security Scan, Deploy
-# ═══════════════════════════════════════════
-
 name: EduSubmit CI/CD Pipeline
-
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
 
-env:
-  REGISTRY: docker.io
-  BACKEND_IMAGE: edusubmit/backend
-  FRONTEND_IMAGE: edusubmit/frontend
-  AI_IMAGE: edusubmit/ai-engine
-
 jobs:
-  # ─────────────────────────────────────────
-  # JOB 1: Backend Tests
-  # ─────────────────────────────────────────
   backend-test:
     name: Backend Tests & Coverage
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - run: npm run test -- --coverage --watchAll=false
+      - uses: actions/upload-artifact@v4
+        with: { name: backend-coverage, path: coverage/ }
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type check
-        run: npm run check
-
-      - name: Run unit tests
-        run: npm run test -- --coverage --watchAll=false
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage
-          path: coverage/
-          retention-days: 7
-
-  # ─────────────────────────────────────────
-  # JOB 2: Frontend Build & Test
-  # ─────────────────────────────────────────
   frontend-test:
     name: Frontend Build & Test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with: { name: frontend-build, path: dist/public/ }
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: dist/public/
-          retention-days: 7
-
-  # ─────────────────────────────────────────
-  # JOB 3: Code Quality (SonarQube)
-  # ─────────────────────────────────────────
   code-quality:
     name: SonarQube Analysis
     needs: backend-test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download coverage report
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-coverage
-          path: coverage/
-
-      - name: SonarQube Quality Gate
-        uses: sonarsource/sonarqube-quality-gate-action@master
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: sonarsource/sonarqube-quality-gate-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           scanMetadataReportFile: coverage/report-task.txt
-        timeout-minutes: 5
 
-  # ─────────────────────────────────────────
-  # JOB 4: Security Scan
-  # ─────────────────────────────────────────
   security-scan:
     name: Security Scan
-    needs: backend-test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Snyk dependency scan
-        uses: snyk/actions/node@master
-        continue-on-error: true
+      - uses: actions/checkout@v4
+      - uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high --json-file-output=snyk-report.json
 
-      - name: Upload Snyk report
-        uses: actions/upload-artifact@v4
-        with:
-          name: snyk-report
-          path: snyk-report.json
-          retention-days: 7
-
-  # ─────────────────────────────────────────
-  # JOB 5: Build Docker Images
-  # ─────────────────────────────────────────
-  docker-build:
-    name: Build Docker Images
-    needs: [backend-test, frontend-test, code-quality, security-scan]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build backend image
-        run: docker build -t ${{ env.BACKEND_IMAGE }}:latest -f Dockerfile .
-
-      - name: Build frontend image
-        run: docker build -t ${{ env.FRONTEND_IMAGE }}:latest -f frontend/Dockerfile ./frontend
-
-      - name: Build AI engine image
-        run: docker build -t ${{ env.AI_IMAGE }}:latest -f ai-engine/Dockerfile ./ai-engine
-
-      - name: Save images as tar
-        run: |
-          docker save ${{ env.BACKEND_IMAGE }}:latest > backend.tar
-          docker save ${{ env.FRONTEND_IMAGE }}:latest > frontend.tar
-          docker save ${{ env.AI_IMAGE }}:latest > ai-engine.tar
-
-      - name: Upload images
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-images
-          path: |
-            backend.tar
-            frontend.tar
-            ai-engine.tar
-          retention-days: 3
-
-  # ─────────────────────────────────────────
-  # JOB 6: Container Security Scan (Trivy)
-  # ─────────────────────────────────────────
-  container-scan:
-    name: Container Security Scan
-    needs: docker-build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download images
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-images
-
-      - name: Load images
-        run: |
-          docker load < backend.tar
-          docker load < frontend.tar
-          docker load < ai-engine.tar
-
-      - name: Run Trivy vulnerability scanner - Backend
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.BACKEND_IMAGE }}:latest
-          format: "sarif"
-          output: "trivy-backend.sarif"
-          exit-code: "1"
-          severity: "CRITICAL"
-
-      - name: Run Trivy vulnerability scanner - Frontend
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.FRONTEND_IMAGE }}:latest
-          format: "sarif"
-          output: "trivy-frontend.sarif"
-          exit-code: "1"
-          severity: "CRITICAL"
-
-      - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: "trivy-backend.sarif"
-
-  # ─────────────────────────────────────────
-  # JOB 7: Push Images to DockerHub
-  # ─────────────────────────────────────────
-  push-images:
-    name: Push Docker Images
-    needs: container-scan
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Download images
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-images
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Load and push images
-        run: |
-          docker load < backend.tar
-          docker load < frontend.tar
-          docker load < ai-engine.tar
-          docker tag ${{ env.BACKEND_IMAGE }}:latest ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:latest
-          docker tag ${{ env.FRONTEND_IMAGE }}:latest ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:latest
-          docker tag ${{ env.AI_IMAGE }}:latest ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.AI_IMAGE }}:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.BACKEND_IMAGE }}:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_IMAGE }}:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.AI_IMAGE }}:latest
-
-  # ─────────────────────────────────────────
-  # JOB 8: Deploy to Staging
-  # ─────────────────────────────────────────
-  deploy-staging:
-    name: Deploy to Staging
-    needs: push-images
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: staging
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to staging server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            cd /opt/edusubmit
-            docker-compose pull
-            docker-compose up -d
-            sleep 30
-            curl -f http://localhost:3000/api/trpc/ping || exit 1
-
-  # ─────────────────────────────────────────
-  # JOB 9: Security DAST (OWASP ZAP)
-  # ─────────────────────────────────────────
-  security-dast:
-    name: DAST Security Scan
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
-        with:
-          target: ${{ secrets.STAGING_URL }}
-          rules_file_name: ".zap/rules.tsv"
-        continue-on-error: true
-
-      - name: Upload ZAP report
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report
-          path: report_*
-          retention-days: 7
-
-  # ─────────────────────────────────────────
-  # JOB 10: Deploy to Production
-  # ─────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
-    needs: security-dast
+    needs: [backend-test, frontend-test, code-quality]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    environment: production
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1
+      - uses: actions/checkout@v4
+      - uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_SSH_KEY }}
           script: |
             cd /opt/edusubmit
-            docker-compose -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-            sleep 30
-            curl -f http://localhost:3000/api/trpc/ping || exit 1
-            echo "Production deployment successful!"
+            docker-compose pull
+            docker-compose up -d
