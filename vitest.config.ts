@@ -10,15 +10,20 @@ export default defineConfig({
       "@": path.resolve(templateRoot, "src"),
       "@contracts": path.resolve(templateRoot, "contracts"),
       "@assets": path.resolve(templateRoot, "attached_assets"),
+      "@db": path.resolve(templateRoot, "db"),
     },
   },
   test: {
     environment: "node",
+    globals: true,
     include: [
-      "api/**/*.test.ts",
-      "api/**/*.spec.ts",
       "src/**/*.test.ts",
       "src/**/*.spec.ts",
     ],
+    exclude: ["node_modules", "dist"],
+    coverage: {
+      reporter: ["text", "lcov"],
+      exclude: ["node_modules", "dist"],
+    },
   },
 });

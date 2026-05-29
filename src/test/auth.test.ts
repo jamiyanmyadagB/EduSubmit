@@ -1,64 +1,100 @@
-/**
- * EduSubmit Auth Unit Tests
- * Tests: login, logout, token generation, RBAC
- */
+import { describe, it, expect } from "vitest";
+import { hashSync, compareSync } from "bcryptjs";
+import { SignJWT, jwtVerify } from "jose";
 
-import { describe, it, expect, vi } from "vitest";
+const JWT_SECRET = new TextEncoder().encode("test-secret-key");
 
-describe("Authentication", () => {
-  describe("JWT Token", () => {
-    it("should include userId, email, role in token payload", async () => {
-      const mockPayload = {
-        userId: 1,
-        email: "student@gmail.com",
-        role: "STUDENT",
-      };
+async function generateToken(userId: number, email: string, role: string) {
+  return new SignJWT({ userId, email, role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("24h")
+    .sign(JWT_SECRET);
+}
 
-      // Verify token payload structure
-      expect(mockPayload).toHaveProperty("userId");
-      expect(mockPayload).toHaveProperty("email");
-      expect(mockPayload).toHaveProperty("role");
-      expect(mockPayload.userId).toBe(1);
-      expect(mockPayload.email).toBe("student@gmail.com");
-      expect(mockPayload.role).toBe("STUDENT");
-    });
+async function verifyToken(token: string) {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
-    it("should expire in 24 hours", () => {
-      const now = new Date();
-      const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const diff = expiry.getTime() - now.getTime();
-
-      expect(diff).toBe(24 * 60 * 60 * 1000);
-    });
+describe("JWT Token", () => {
+  it("generates a valid JWT with 3 parts", async () => {
+    const token = await generateToken(1, "student@gmail.com", "STUDENT");
+    expect(token.split(".").length).toBe(3);
   });
 
-  describe("Password Hashing", () => {
-    it("should hash password using bcrypt", () => {
-      const hashed = "$2a$10$mockhash";
-
-      // Verify hash format (bcrypt hashes start with $2)
-      expect(hashed).toMatch(/^\$2/);
-    });
+  it("payload contains userId, email, role", async () => {
+    const token = await generateToken(1, "student@gmail.com", "STUDENT");
+    const payload = await verifyToken(token);
+    expect(payload?.userId).toBe(1);
+    expect(payload?.email).toBe("student@gmail.com");
+    expect(payload?.role).toBe("STUDENT");
   });
 
-  describe("RBAC", () => {
-    it("should allow STUDENT access to student routes", () => {
-      const role = "STUDENT";
-      const allowedRoles = ["STUDENT", "TEACHER", "ADMIN"];
-      expect(allowedRoles.includes(role)).toBe(true);
-    });
+  it("returns null for invalid token", async () => {
+    expect(await verifyToken("bad.token.here")).toBeNull();
+  });
 
-    it("should allow TEACHER access to teacher routes", () => {
-      const role = "TEACHER";
-      const allowedRoles = ["TEACHER", "ADMIN"];
-      expect(allowedRoles.includes(role)).toBe(true);
-    });
+  it("returns null for empty string", async () => {
+    expect(await verifyToken("")).toBeNull();
+  });
 
-    it("should allow ADMIN access to all routes", () => {
-      const role = "ADMIN";
-      const adminRoutes = ["/api/admin", "/api/teacher", "/api/student"];
-      expect(role).toBe("ADMIN");
-      expect(adminRoutes.length).toBeGreaterThan(0);
-    });
+  it("returns null for tampered token", async () => {
+    const token = await generateToken(1, "x@x.com", "STUDENT");
+    expect(await verifyToken(token.slice(0, -4) + "XXXX")).toBeNull();
+  });
+
+  it("different users get different tokens", async () => {
+    const t1 = await generateToken(1, "a@a.com", "STUDENT");
+    const t2 = await generateToken(2, "b@b.com", "TEACHER");
+    expect(t1).not.toBe(t2);
+  });
+});
+
+describe("Password Hashing", () => {
+  it("bcrypt hash starts with $2", () => {
+    expect(hashSync("123", 10)).toMatch(/^\$2[aby]\$/);
+  });
+
+  it("correct password verifies", () => {
+    const hash = hashSync("123", 10);
+    expect(compareSync("123", hash)).toBe(true);
+  });
+
+  it("wrong password fails", () => {
+    const hash = hashSync("123", 10);
+    expect(compareSync("wrong", hash)).toBe(false);
+  });
+
+  it("same password produces different hashes (salt)", () => {
+    expect(hashSync("123", 10)).not.toBe(hashSync("123", 10));
+  });
+});
+
+describe("RBAC Role Logic", () => {
+  const canAccess = (role: string, required: string) => role === required;
+  const isAdminOrTeacher = (role: string) => role === "ADMIN" || role === "TEACHER";
+
+  it("STUDENT cannot access TEACHER routes", () => {
+    expect(canAccess("STUDENT", "TEACHER")).toBe(false);
+  });
+
+  it("STUDENT cannot access ADMIN routes", () => {
+    expect(canAccess("STUDENT", "ADMIN")).toBe(false);
+  });
+
+  it("TEACHER can access TEACHER routes", () => {
+    expect(canAccess("TEACHER", "TEACHER")).toBe(true);
+  });
+
+  it("ADMIN passes teacher-or-admin check", () => {
+    expect(isAdminOrTeacher("ADMIN")).toBe(true);
+  });
+
+  it("STUDENT fails teacher-or-admin check", () => {
+    expect(isAdminOrTeacher("STUDENT")).toBe(false);
   });
 });

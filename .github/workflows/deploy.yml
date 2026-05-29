@@ -2,27 +2,14 @@ name: Deploy
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - production
 
 jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: http://edusubmit.cloud-ip.cc
     steps:
       - uses: actions/checkout@v4
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+      - uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -31,5 +18,5 @@ jobs:
             cd /home/ubuntu/edusubmit
             git pull origin main
             docker-compose up -d --build
-            sleep 15
+            sleep 10
             curl -f http://localhost:3000/api/trpc/ping && echo "✅ Deployed"

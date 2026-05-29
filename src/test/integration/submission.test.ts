@@ -1,88 +1,67 @@
-/**
- * EduSubmit Submission Integration Tests
- * Tests: deadline validation, file upload, duplicate checking, server timestamps
- */
-
 import { describe, it, expect } from "vitest";
 
-describe("Submission Integration", () => {
-  describe("Deadline Validation", () => {
-    it("should reject submission after deadline", () => {
-      const deadline = new Date("2024-01-01T00:00:00Z");
-      const now = new Date("2024-01-02T00:00:00Z");
+const ALLOWED = ["pdf", "docx", "zip"];
+const MAX_SIZE = 10 * 1024 * 1024;
 
-      const isPastDeadline = now > deadline;
-      expect(isPastDeadline).toBe(true);
-    });
+function validateFile(name: string, size: number) {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED.includes(ext)) return { ok: false, error: "Invalid file type" };
+  if (size > MAX_SIZE) return { ok: false, error: "File too large" };
+  return { ok: true };
+}
 
-    it("should accept submission before deadline", () => {
-      const deadline = new Date("2030-12-31T23:59:59Z");
-      const now = new Date();
+function deadlinePassed(due: Date) { return new Date() > due; }
 
-      const isBeforeDeadline = now < deadline;
-      expect(isBeforeDeadline).toBe(true);
-    });
+function isDuplicate(
+  existing: { studentId: number; assignmentId: number; status: string }[],
+  sid: number, aid: number
+) {
+  return existing.some(s => s.studentId === sid && s.assignmentId === aid && s.status !== "DRAFT");
+}
+
+describe("File Type Validation", () => {
+  it("accepts pdf", () => expect(validateFile("a.pdf", 1024).ok).toBe(true));
+  it("accepts docx", () => expect(validateFile("a.docx", 1024).ok).toBe(true));
+  it("accepts zip", () => expect(validateFile("a.zip", 1024).ok).toBe(true));
+  it("rejects exe", () => expect(validateFile("a.exe", 1024).ok).toBe(false));
+  it("rejects png", () => expect(validateFile("a.png", 1024).ok).toBe(false));
+  it("rejects no extension", () => expect(validateFile("file", 1024).ok).toBe(false));
+  it("case insensitive", () => expect(validateFile("A.PDF", 1024).ok).toBe(true));
+});
+
+describe("File Size Validation", () => {
+  it("accepts 5MB", () => expect(validateFile("a.pdf", 5 * 1024 * 1024).ok).toBe(true));
+  it("accepts exactly 10MB", () => expect(validateFile("a.pdf", MAX_SIZE).ok).toBe(true));
+  it("rejects 10MB+1", () => expect(validateFile("a.pdf", MAX_SIZE + 1).ok).toBe(false));
+  it("rejects 15MB", () => expect(validateFile("a.pdf", 15 * 1024 * 1024).ok).toBe(false));
+});
+
+describe("Deadline Validation", () => {
+  it("rejects past deadline", () => {
+    expect(deadlinePassed(new Date(Date.now() - 86400000))).toBe(true);
   });
-
-  describe("File Validation", () => {
-    it("should accept PDF files", () => {
-      const fileName = "assignment.pdf";
-      const ext = fileName.split(".").pop()?.toLowerCase();
-      const allowed = ["pdf", "docx", "zip"];
-      expect(allowed.includes(ext || "")).toBe(true);
-    });
-
-    it("should accept DOCX files", () => {
-      const fileName = "report.docx";
-      const ext = fileName.split(".").pop()?.toLowerCase();
-      const allowed = ["pdf", "docx", "zip"];
-      expect(allowed.includes(ext || "")).toBe(true);
-    });
-
-    it("should accept ZIP files", () => {
-      const fileName = "project.zip";
-      const ext = fileName.split(".").pop()?.toLowerCase();
-      const allowed = ["pdf", "docx", "zip"];
-      expect(allowed.includes(ext || "")).toBe(true);
-    });
-
-    it("should reject EXE files", () => {
-      const fileName = "virus.exe";
-      const ext = fileName.split(".").pop()?.toLowerCase();
-      const allowed = ["pdf", "docx", "zip"];
-      expect(allowed.includes(ext || "")).toBe(false);
-    });
-
-    it("should reject files over 10MB", () => {
-      const fileSize = 15 * 1024 * 1024; // 15MB
-      const maxSize = 10 * 1024 * 1024;  // 10MB
-      expect(fileSize).toBeGreaterThan(maxSize);
-    });
+  it("accepts future deadline", () => {
+    expect(deadlinePassed(new Date(Date.now() + 86400000))).toBe(false);
   });
+});
 
-  describe("Server Timestamp", () => {
-    it("should use server-side UTC timestamp", () => {
-      const serverTimestamp = new Date().toISOString();
-      // Verify it's a valid ISO timestamp
-      expect(serverTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
-    });
+describe("Duplicate Detection", () => {
+  it("detects SUBMITTED duplicate", () => {
+    expect(isDuplicate([{ studentId: 1, assignmentId: 1, status: "SUBMITTED" }], 1, 1)).toBe(true);
   });
-
-  describe("Duplicate Submission", () => {
-    it("should detect existing submission for same student+assignment", () => {
-      const existingSubmissions = [
-        { studentId: 1, assignmentId: 1, status: "SUBMITTED" },
-      ];
-      const newSubmission = { studentId: 1, assignmentId: 1 };
-
-      const isDuplicate = existingSubmissions.some(
-        (s) =>
-          s.studentId === newSubmission.studentId &&
-          s.assignmentId === newSubmission.assignmentId &&
-          s.status !== "DRAFT"
-      );
-
-      expect(isDuplicate).toBe(true);
-    });
+  it("detects GRADED duplicate", () => {
+    expect(isDuplicate([{ studentId: 1, assignmentId: 1, status: "GRADED" }], 1, 1)).toBe(true);
+  });
+  it("allows resubmit over DRAFT", () => {
+    expect(isDuplicate([{ studentId: 1, assignmentId: 1, status: "DRAFT" }], 1, 1)).toBe(false);
+  });
+  it("allows different assignment", () => {
+    expect(isDuplicate([{ studentId: 1, assignmentId: 1, status: "SUBMITTED" }], 1, 2)).toBe(false);
+  });
+  it("allows different student", () => {
+    expect(isDuplicate([{ studentId: 1, assignmentId: 1, status: "SUBMITTED" }], 2, 1)).toBe(false);
+  });
+  it("handles empty list", () => {
+    expect(isDuplicate([], 1, 1)).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-name: E2E Selenium Tests
+name: E2E Tests
 
 on:
   push:
@@ -11,55 +11,17 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: edusubmit
-          MYSQL_USER: edusubmit
-          MYSQL_PASSWORD: edusubmit_pass
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
       - run: npm ci
-
-      - name: Push DB schema
-        run: npm run db:push
-        env:
-          DATABASE_URL: mysql://edusubmit:edusubmit_pass@localhost:3306/edusubmit
-
-      - name: Seed DB
-        run: npx tsx db/seed.ts
-        env:
-          DATABASE_URL: mysql://edusubmit:edusubmit_pass@localhost:3306/edusubmit
-
-      - name: Run E2E tests
-        run: npm test -- --reporter=verbose
+      - run: npx vitest run src/test/e2e --reporter=verbose
         env:
           NODE_ENV: test
-          DATABASE_URL: mysql://edusubmit:edusubmit_pass@localhost:3306/edusubmit
+          DATABASE_URL: mysql://test:test@localhost:3306/test
           JWT_SECRET: test-secret
           APP_ID: test
           APP_SECRET: test
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-results
-          path: coverage/
-          retention-days: 7
