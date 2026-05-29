@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx vitest run src/test/e2e --reporter=verbose
         env:
           NODE_ENV: test

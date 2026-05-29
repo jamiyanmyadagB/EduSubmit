@@ -12,18 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
-      - run: npm ci
-
+      - run: npm ci --legacy-peer-deps
       - name: Type check
         run: npm run check
         continue-on-error: true
-
       - name: Run tests
         run: npm test -- --reporter=verbose
         env:
@@ -32,7 +28,6 @@ jobs:
           JWT_SECRET: test-secret
           APP_ID: test
           APP_SECRET: test
-
       - name: Build
         run: npm run build
         env:
@@ -41,7 +36,6 @@ jobs:
           JWT_SECRET: test-secret
           APP_ID: test
           APP_SECRET: test
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:

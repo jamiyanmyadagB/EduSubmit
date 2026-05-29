@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - uses: snyk/actions/node@master
         continue-on-error: true
         env:
