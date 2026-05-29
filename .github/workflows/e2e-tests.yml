@@ -1,5 +1,5 @@
 name: E2E Selenium Tests
-on: [push, pull_request, workflow_dispatch]
+on: [push, pull_request]
 
 jobs:
   e2e-tests:

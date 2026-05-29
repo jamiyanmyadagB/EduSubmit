@@ -1,39 +1,20 @@
 name: Deploy
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'staging'
         type: choice
         options: [ staging, production ]
 
 jobs:
-  deploy-staging:
-    name: Deploy to Staging
+  deploy:
     runs-on: ubuntu-latest
-    if: github.event.inputs.environment == 'staging'
     steps:
       - uses: actions/checkout@v4
       - name: Configure kubectl
+        env:
+          KUBE_CONFIG: ${{ github.event.inputs.environment == 'production' && secrets.KUBE_CONFIG_PRODUCTION || secrets.KUBE_CONFIG_STAGING }}
         run: |
           mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
-      - name: Apply manifests
-        run: kubectl apply -f k8s/staging/
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    if: github.event.inputs.environment == 'production'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure kubectl
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
-      - name: Apply manifests
-        run: kubectl apply -f k8s/production/
+          echo "$KUBE_CONFIG" | base64 -d > $HOME/.kube/config
+          kubectl apply -f k8s/${{ github.event.inputs.environment }}/
