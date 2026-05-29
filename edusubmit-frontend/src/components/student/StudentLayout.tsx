@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
@@ -40,7 +40,7 @@ const StudentLayout = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login/student');
+    navigate('/login');
   };
 
   const isActivePath = (path: string) => {

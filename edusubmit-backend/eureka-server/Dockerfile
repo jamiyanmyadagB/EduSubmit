@@ -1,10 +1,10 @@
 FROM eclipse-temurin:17-jre-alpine
 
-RUN apk add --no-cache netcat-openbsd
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-COPY target/eureka-server-0.0.1-SNAPSHOT.jar app.jar
+COPY target/eureka-server-1.0.0.jar app.jar
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

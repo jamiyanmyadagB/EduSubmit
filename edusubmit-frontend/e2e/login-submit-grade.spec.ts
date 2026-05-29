@@ -7,8 +7,7 @@
  * 
  * Run with: npx playwright test e2e/login-submit-grade.spec.ts
  */
-
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test-v1';
 
 test.describe('E2E: Login → Submit Assignment → View Grade Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -51,49 +50,49 @@ test.describe('E2E: Login → Submit Assignment → View Grade Flow', () => {
 
     // REMAINING STEPS COMMENTED OUT FOR MINIMAL TESTING
     // Step 3: Select an assignment to submit
-    // await test.step('Select assignment', async () => {
-    //   await expect(page.locator('[data-testid="assignment-card"]')).first().toBeVisible();
-    //   await page.locator('[data-testid="assignment-card"]').first().click();
-    //   await expect(page.locator('text=Assignment Details')).toBeVisible();
-    // });
+    await test.step('Select assignment', async () => {
+      await expect(page.locator('[data-testid="assignment-card"]')).first().toBeVisible();
+      await page.locator('[data-testid="assignment-card"]').first().click();
+      await expect(page.locator('text=Assignment Details')).toBeVisible();
+    });
 
     // Step 4: Submit assignment
-    // await test.step('Submit assignment', async () => {
-    //   await page.click('text=Submit Assignment');
-    //   await expect(page.locator('form')).toBeVisible();
-    //   const fileInput = page.locator('input[type="file"]');
-    //   await fileInput.setInputFiles('test-submission.pdf');
-    //   await page.fill('textarea[name="notes"]', 'This is my test submission');
-    //   await page.click('button[type="submit"]');
-    //   await expect(page.locator('text=Submission successful')).toBeVisible();
-    // });
+    await test.step('Submit assignment', async () => {
+      await page.click('text=Submit Assignment');
+      await expect(page.locator('form')).toBeVisible();
+      const fileInput = page.locator('input[type="file"]');
+      await fileInput.setInputFiles('test-submission.pdf');
+      await page.fill('textarea[name="notes"]', 'This is my test submission');
+      await page.click('button[type="submit"]');
+      await expect(page.locator('text=Submission successful')).toBeVisible();
+    });
 
     // Step 5: Navigate to submissions
-    // await test.step('Navigate to submissions', async () => {
-    //   await page.click('text=Submissions');
-    //   await expect(page).toHaveURL(/.*submissions/);
-    //   await expect(page.locator('text=My Submissions')).toBeVisible();
-    // });
+    await test.step('Navigate to submissions', async () => {
+      await page.click('text=Submissions');
+      await expect(page).toHaveURL(/.*submissions/);
+      await expect(page.locator('text=My Submissions')).toBeVisible();
+    });
 
     // Step 6: View grade for submitted assignment
-    // await test.step('View grade', async () => {
-    //   await expect(page.locator('[data-testid="submission-card"]')).first().toBeVisible();
-    //   await page.locator('[data-testid="submission-card"]').first().click();
-    //   await expect(page.locator('text=Submission Details')).toBeVisible();
-    //   await expect(page.locator('[data-testid="grade-display"]')).toBeVisible();
-    //   const gradeText = await page.locator('[data-testid="grade-display"]').textContent();
-    //   const grade = parseFloat(gradeText || '0');
-    //   expect(grade).toBeGreaterThanOrEqual(0);
-    //   expect(grade).toBeLessThanOrEqual(100);
-    // });
+    await test.step('View grade', async () => {
+      await expect(page.locator('[data-testid="submission-card"]')).first().toBeVisible();
+      await page.locator('[data-testid="submission-card"]').first().click();
+      await expect(page.locator('text=Submission Details')).toBeVisible();
+      await expect(page.locator('[data-testid="grade-display"]')).toBeVisible();
+      const gradeText = await page.locator('[data-testid="grade-display"]').textContent();
+      const grade = parseFloat(gradeText || '0');
+      expect(grade).toBeGreaterThanOrEqual(0);
+      expect(grade).toBeLessThanOrEqual(100);
+    });
 
     // Step 7: Logout
-    // await test.step('Logout', async () => {
-    //   await page.click('[data-testid="user-menu"]');
-    //   await page.click('text=Logout');
-    //   await expect(page).toHaveURL(/.*login/);
-    //   await expect(page.locator('text=Login')).toBeVisible();
-    // });
+    await test.step('Logout', async () => {
+      await page.click('[data-testid="user-menu"]');
+      await page.click('text=Logout');
+      await expect(page).toHaveURL(/.*login/);
+      await expect(page.locator('text=Login')).toBeVisible();
+    });
   });
 
   test('teacher grading workflow', async ({ page }) => {

@@ -35,8 +35,13 @@ app.get("/actuator/health", (c) => {
   });
 });
 
+// REST spec surface (must be mounted BEFORE /api/* catch-all)
+import { restSpec } from "./rest-spec";
+app.route("/", restSpec);
+
 // Catch-all for API
 app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
+
 
 export default app;
 

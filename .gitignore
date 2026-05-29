@@ -46,3 +46,7 @@ edusubmit-backend/tools/apache-maven-3.9.4/
 # Ignore all current and future Java build outputs
 **/target/
 *.class
+**/build/
+**/.gradle/
+**/*.jar
+.env

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+﻿import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { AnimatePresence } from 'framer-motion';
 import LandingPage from './pages/LandingPage';
@@ -25,13 +25,13 @@ import TeacherStudents from './pages/teacher/Students';
 import TeacherNotifications from './pages/teacher/Notifications';
 import TeacherProfile from './pages/teacher/Profile';
 import AdminLayout from './pages/admin/AdminLayout';
-import AdminDashboardHome from './pages/admin/AdminDashboardHome';
+import AdminDashboardHome from './pages/admin/DashboardHome';
 import AdminUsers from './pages/admin/Users';
 import AdminSections from './pages/admin/Sections';
 import AdminTeacherAssignments from './pages/admin/TeacherAssignments';
 import AdminTimetableManagement from './pages/admin/TimetableManagement';
 import AdminSystemMonitoring from './pages/admin/SystemMonitoring';
-import AdminNotifications from './pages/admin/AdminNotifications';
+import AdminNotifications from './pages/admin/Notifications';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminProfile from './pages/admin/AdminProfile';
 import { NotificationProvider } from './components/ui/NotificationSystem';
@@ -45,7 +45,7 @@ function ProtectedRoute({ children, allowedRole }: { children: React.ReactNode; 
   }
 
   if (allowedRole && user?.role !== allowedRole) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -59,7 +59,6 @@ function App() {
     <NotificationProvider>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          {/* Public Routes */}
           <Route path="/" element={<PageTransition><LandingPage /></PageTransition>} />
           <Route path="/select-role" element={<PageTransition><RoleSelection /></PageTransition>} />
           <Route path="/login/student" element={<PageTransition><StudentLogin /></PageTransition>} />
@@ -67,25 +66,26 @@ function App() {
           <Route path="/login/admin" element={<PageTransition><AdminLogin /></PageTransition>} />
           <Route path="/login" element={<PageTransition><LoginPage /></PageTransition>} />
 
-          {/* Protected Dashboard Routes */}
           <Route path="/dashboard" element={
-            <ProtectedRoute>
-              {user?.role === 'STUDENT' && <StudentLayout />}
-              {user?.role === 'TEACHER' && <TeacherLayout />}
-              {user?.role === 'ADMIN' && <AdminLayout />}
+            <ProtectedRoute allowedRole="STUDENT">
+              <StudentLayout />
             </ProtectedRoute>
           }>
-            {/* Student Routes */}
-            <Route path="" element={<DashboardHome />} />
+            <Route index element={<DashboardHome />} />
             <Route path="assignments" element={<Assignments />} />
             <Route path="submissions" element={<Submissions />} />
             <Route path="exam-timetable" element={<ExamTimetable />} />
             <Route path="ai-assistant" element={<AIAssistant />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="profile" element={<Profile />} />
+          </Route>
 
-            {/* Teacher Routes */}
-            <Route path="" element={<TeacherDashboardHome />} />
+          <Route path="/teacher" element={
+            <ProtectedRoute allowedRole="TEACHER">
+              <TeacherLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<TeacherDashboardHome />} />
             <Route path="assignments" element={<TeacherAssignments />} />
             <Route path="submissions" element={<TeacherSubmissions />} />
             <Route path="exam-timetable" element={<TeacherExamTimetable />} />
@@ -93,9 +93,14 @@ function App() {
             <Route path="students" element={<TeacherStudents />} />
             <Route path="notifications" element={<TeacherNotifications />} />
             <Route path="profile" element={<TeacherProfile />} />
+          </Route>
 
-            {/* Admin Routes */}
-            <Route path="" element={<AdminDashboardHome />} />
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRole="ADMIN">
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<AdminDashboardHome />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="sections" element={<AdminSections />} />
             <Route path="teacher-assignments" element={<AdminTeacherAssignments />} />
@@ -106,7 +111,6 @@ function App() {
             <Route path="profile" element={<AdminProfile />} />
           </Route>
 
-          {/* Redirect authenticated users to dashboard, unauthenticated to landing */}
           <Route
             path="*"
             element={

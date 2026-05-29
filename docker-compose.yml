@@ -1,10 +1,10 @@
-version: "3.8"
+# version: "3.8"
 
 services:
   # ─── New Microservices Stack (Updated for Local Builds) ───
   eureka-server:
     build:
-      context: ./edusubmit-backend/eureka-server  # Adjust path if different in your root
+      context: ./edusubmit-backend/eureka-server
       dockerfile: Dockerfile
     image: edusubmit/eureka-server:latest
     container_name: edusubmit-eureka
@@ -13,10 +13,11 @@ services:
     environment:
       - SERVICE_TO_START=eureka-server
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8761"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - edusubmit-net
     restart: unless-stopped
@@ -58,7 +59,6 @@ services:
       - edusubmit-net
     restart: unless-stopped
 
-  # ─── Existing Infrastructure ───
   mysql:
     image: mysql:8.0
     container_name: edusubmit-mysql
@@ -106,9 +106,11 @@ services:
       NODE_ENV: production
       PORT: "3000"
       DATABASE_URL: mysql://edusubmit:edusubmit_pass@mysql:3306/edusubmit
-      JWT_SECRET: edusubmit-jwt-secret-change-in-production-256-bits
+      JWT_SECRET: LWh7Ca6nmTEKILVefBiCv8f8Dyl8ICj7QbeUTDQBz3F6bAfFKZPTeUneI58V58j5tMnn6KaNb49ePegg5LmBjQ==
+      APP_SECRET: 1029384756 # <--- ADD THIS LINE
       AI_ENGINE_URL: http://ai-engine:5000
       UPLOAD_DIR: /app/uploads
+      APP_ID: 12345
     ports:
       - "3000:3000"
     volumes:
@@ -138,11 +140,11 @@ services:
     ports:
       - "5000:5000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"] # Change '/metrics' to '/'
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     networks:
       - edusubmit-net
     restart: unless-stopped
@@ -228,6 +230,7 @@ services:
     mem_limit: 512m
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - NODE_OPTIONS=--openssl-legacy-provider
     ports:
       - "5601:5601"
     depends_on:

@@ -20,6 +20,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from prometheus_flask_exporter import PrometheusMetrics
 
 # Setup logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, origins=["*"])
+metrics = PrometheusMetrics(app)
 
 # ─────────────────────────────────────────────
 # Configuration
@@ -363,15 +365,9 @@ def generate_ai_help_response(question: str, assignment_id: Optional[int] = None
 # ─────────────────────────────────────────────
 
 @app.route("/health", methods=["GET"])
-def health():
-    """Health check endpoint."""
-    return jsonify({
-        "status": "healthy",
-        "service": "edusubmit-ai-engine",
-        "version": "1.0.0",
-        "timestamp": datetime.utcnow().isoformat(),
-        "nltk_available": NLTK_AVAILABLE
-    })
+def health_check():
+    return {"status": "ok"}, 200
+
 
 
 @app.route("/ai/grade", methods=["POST"])

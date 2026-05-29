@@ -31,7 +31,7 @@ route:
 receivers:
   - name: default
     email_configs:
-      - to: "admin@edusubmit.com"
+      - to: "baatarjamia@gmail.com"
         subject: "[EduSubmit Alert] {{ .GroupLabels.alertname }}"
         body: |
           {{ range .Alerts }}
@@ -41,17 +41,17 @@ receivers:
           Time: {{ .StartsAt }}
           {{ end }}
 
-  - name: pagerduty-critical
-    pagerduty_configs:
-      - service_key: "YOUR_PAGERDUTY_KEY"
-        description: "{{ .CommonAnnotations.summary }}"
-        severity: critical
-        details:
-          firing: "{{ template \"pagerduty.default.description\" . }}"
+  # - name: pagerduty-critical
+  #   pagerduty_configs:
+  #     - service_key: "YOUR_PAGERDUTY_KEY"
+  #       description: "{{ .CommonAnnotations.summary }}"
+  #       severity: critical
+  #       details:
+  #         firing: "{{ template \"pagerduty.default.description\" . }}"
 
   - name: email-warning
     email_configs:
-      - to: "admin@edusubmit.com"
+      - to: "baatarjamia@gmail.com"
         from: "alerts@edusubmit.com"
         subject: "[EduSubmit Warning] {{ .GroupLabels.alertname }}"
         body: |

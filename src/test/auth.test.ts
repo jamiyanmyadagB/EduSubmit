@@ -34,7 +34,6 @@ describe("Authentication", () => {
 
   describe("Password Hashing", () => {
     it("should hash password using bcrypt", () => {
-      const password = "123";
       const hashed = "$2a$10$mockhash";
 
       // Verify hash format (bcrypt hashes start with $2)

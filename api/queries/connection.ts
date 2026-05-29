@@ -9,10 +9,8 @@ let instance: ReturnType<typeof drizzle<typeof fullSchema>>;
 
 export function getDb() {
   if (!instance) {
-    instance = drizzle(env.databaseUrl, {
-      mode: "planetscale",
-      schema: fullSchema,
-    });
+    instance = drizzle(env.databaseUrl, { mode: "default", schema: fullSchema });
+
   }
   return instance;
 }

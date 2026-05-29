@@ -45,35 +45,11 @@ function makeTrpcClient(baseUrl: string, token?: string) {
 
 export const restAdapter = new Hono();
 
-restAdapter.post(
-  "/api/auth/login",
-  async (c) => {
-    const body = await c.req.json().catch(() => ({}));
-    const schema = z.object({ email: z.string().email(), password: z.string().min(1) });
-    const parsed = schema.safeParse(body);
-    if (!parsed.success) return c.json(fail("Invalid request"), 400);
+// NOTE:
+// This adapter is kept for future generic REST->tRPC forwarding.
+// The currently active REST API surface is implemented in `api/rest-spec-routes.ts`.
+//
+// Do not block requests here.
 
-    const baseUrl = c.req.url.replace(/\/$/, "");
-    const client = makeTrpcClient(baseUrl, undefined);
 
-    try {
-      // tRPC endpoint for localAuth.login
-      const res = await client.post<any>("/api/trpc", {
-        // fetch adapter expects tRPC fetch protocol; we use the existing batch/format used by frontend.
-        // The frontend calls are already implemented by tRPC client; without it we can't construct
-        // the exact request shape reliably here.
-        // Therefore, this REST adapter relies on the fact that the runtime also supports
-        // tRPC fetchRequestHandler and expects the standard tRPC payload.
-      });
-
-      // If parsing fails, return raw.
-      // NOTE: This placeholder must be replaced once we confirm the tRPC fetch payload shape.
-      return c.json({ success: true, data: res, message: "Forwarded" });
-    } catch {
-      return c.json(fail("Failed to forward to tRPC"), 502);
-    }
-  },
-);
-
-// TODO: Remaining endpoints will be added after confirming the exact tRPC fetch payload format.
 
