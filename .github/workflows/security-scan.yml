@@ -14,8 +14,6 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
-env:
-  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
 jobs:
   # ============================================
@@ -196,7 +194,10 @@ jobs:
   secret-scan:
     name: Secret Scan
     runs-on: ubuntu-latest
-    
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - name: Snyk Scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

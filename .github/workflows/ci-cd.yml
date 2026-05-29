@@ -101,10 +101,9 @@ jobs:
           name: backend-coverage
           path: coverage/
 
-      - name: SonarQube Scan
-        uses: sonarqube-quality-gate-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Quality Gate
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           scanMetadataReportFile: coverage/report-task.txt
         timeout-minutes: 5

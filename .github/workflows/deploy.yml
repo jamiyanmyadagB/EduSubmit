@@ -32,20 +32,12 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && (github.event.inputs.environment == 'staging' || github.event.inputs.environment == '')
-    environment:
-      name: staging
-      url: https://staging.edusubmit.com
-    
+    environment: { name: staging, url: https://staging.edusubmit.com }
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.28.0'
-
-      - name: Configure kubectl for Kubernetes cluster
+      - uses: actions/checkout@v4
+      - name: Configure kubectl
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
@@ -104,7 +96,8 @@ jobs:
     environment:
       name: production
       url: https://edusubmit.com
-    
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

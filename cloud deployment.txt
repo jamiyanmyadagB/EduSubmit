@@ -1,0 +1,15 @@
+ssh -i edusubmit-key.pem ubuntu@YOUR_EC2_IP
+
+# Run this on the server:
+sudo apt update && sudo apt install -y docker.io docker-compose git curl
+sudo usermod -aG docker ubuntu
+newgrp docker
+
+mkdir -p /home/ubuntu/edusubmit
+cd /home/ubuntu/edusubmit
+git clone https://github.com/YOUR_USERNAME/EduSubmit.git .
+cp .env.example .env
+# edit .env with your real values
+docker-compose up -d mysql redis
+sleep 30
+npm run db:push    # or docker exec into backend and run it
