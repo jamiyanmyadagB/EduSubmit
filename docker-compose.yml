@@ -212,7 +212,8 @@ services:
   # ─── Logstash ───
   logstash:
     image: logstash:8.11.0
-    container_name: edusubmit-logstash
+    volumes:
+      - /home/koorkon/logstash_config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
     volumes:
       - type: bind
         source: ./elk/logstash/logstash.conf
